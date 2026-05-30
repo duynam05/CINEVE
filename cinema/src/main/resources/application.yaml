@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: cinema
+  config:
+    import: optional:file:.env[.properties]
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/cineve}
+    driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME:com.mysql.cj.jdbc.Driver}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:root}
+  jpa:
+    hibernate:
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
+    show-sql: ${SPRING_JPA_SHOW_SQL:true}
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+
+server:
+  port: ${PORT:8080}
+
+jwt:
+  signer-key: ${JWT_SIGNER_KEY:0123456789012345678901234567890123456789012345678901234567890123}
+  valid-duration: ${JWT_VALID_DURATION:86400}
+
+app:
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  bootstrap:
+    admin:
+      enabled: ${APP_BOOTSTRAP_ADMIN_ENABLED:true}
+      email: ${APP_BOOTSTRAP_ADMIN_EMAIL:admin@cineve.vn}
+      password: ${APP_BOOTSTRAP_ADMIN_PASSWORD:admin123}
+      full-name: ${APP_BOOTSTRAP_ADMIN_FULL_NAME:Quản trị viên}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
