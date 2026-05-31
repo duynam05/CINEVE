@@ -9,15 +9,22 @@ import java.util.UUID;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 import com.duynam.cinema.configuration.JwtProperties;
 import com.duynam.cinema.constant.UserStatus;
 import com.duynam.cinema.dto.request.AuthenticationRequest;
+import com.duynam.cinema.dto.request.LogoutRequest;
+import com.duynam.cinema.dto.request.RefreshTokenRequest;
 import com.duynam.cinema.dto.response.AuthenticationResponse;
+import com.duynam.cinema.entity.InvalidatedToken;
+import com.duynam.cinema.entity.RefreshToken;
 import com.duynam.cinema.entity.User;
 import com.duynam.cinema.exception.AppException;
 import com.duynam.cinema.exception.ErrorCode;
 import com.duynam.cinema.mapper.UserMapper;
+import com.duynam.cinema.repository.InvalidatedTokenRepository;
+import com.duynam.cinema.repository.RefreshTokenRepository;
 import com.duynam.cinema.repository.UserRepository;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
@@ -25,7 +32,9 @@ import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.JWSObject;
 import com.nimbusds.jose.Payload;
 import com.nimbusds.jose.crypto.MACSigner;
+import com.nimbusds.jose.crypto.MACVerifier;
 import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.SignedJWT;
 
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +50,8 @@ public class AuthenticationService {
     PasswordEncoder passwordEncoder;
     JwtProperties jwtProperties;
     UserMapper userMapper;
+    RefreshTokenRepository refreshTokenRepository;
+    InvalidatedTokenRepository invalidatedTokenRepository;
 
     public AuthenticationResponse authenticate(AuthenticationRequest request) {
         User user = userRepository.findByEmail(request.getEmail().trim().toLowerCase())
@@ -54,9 +65,49 @@ public class AuthenticationService {
 
         return AuthenticationResponse.builder()
                 .token(generateToken(user))
+                .refreshToken(createRefreshToken(user).getToken())
                 .authenticated(true)
                 .user(userMapper.toUserResponse(user))
                 .build();
+    }
+
+    public AuthenticationResponse refreshToken(RefreshTokenRequest request) {
+        RefreshToken refreshToken = refreshTokenRepository.findByTokenAndRevokedFalse(request.getRefreshToken().trim())
+                .orElseThrow(() -> new AppException(ErrorCode.REFRESH_TOKEN_INVALID_OR_EXPIRED));
+
+        if (refreshToken.getExpiresAt().isBefore(Instant.now())) {
+            refreshToken.setRevoked(true);
+            refreshTokenRepository.save(refreshToken);
+            throw new AppException(ErrorCode.REFRESH_TOKEN_INVALID_OR_EXPIRED);
+        }
+
+        User user = refreshToken.getUser();
+        assertUserIsActive(user);
+
+        refreshToken.setRevoked(true);
+        refreshTokenRepository.save(refreshToken);
+
+        return AuthenticationResponse.builder()
+                .token(generateToken(user))
+                .refreshToken(createRefreshToken(user).getToken())
+                .authenticated(true)
+                .user(userMapper.toUserResponse(user))
+                .build();
+    }
+
+    public void logout(String authorizationHeader, LogoutRequest request) {
+        String accessToken = extractBearerToken(authorizationHeader);
+        if (StringUtils.hasText(accessToken)) {
+            invalidateAccessToken(accessToken);
+        }
+
+        if (request != null && StringUtils.hasText(request.getRefreshToken())) {
+            refreshTokenRepository.findByTokenAndRevokedFalse(request.getRefreshToken().trim())
+                    .ifPresent(refreshToken -> {
+                        refreshToken.setRevoked(true);
+                        refreshTokenRepository.save(refreshToken);
+                    });
+        }
     }
 
     private String generateToken(User user) {
@@ -82,6 +133,38 @@ public class AuthenticationService {
         }
     }
 
+    private RefreshToken createRefreshToken(User user) {
+        RefreshToken refreshToken = RefreshToken.builder()
+                .token(UUID.randomUUID().toString())
+                .user(user)
+                .expiresAt(Instant.now().plus(jwtProperties.getRefreshableDuration(), ChronoUnit.SECONDS))
+                .build();
+
+        return refreshTokenRepository.save(refreshToken);
+    }
+
+    private void invalidateAccessToken(String token) {
+        try {
+            SignedJWT signedJWT = SignedJWT.parse(token);
+            boolean verified = signedJWT.verify(new MACVerifier(jwtProperties.getSignerKey().getBytes()));
+            Date expirationTime = signedJWT.getJWTClaimsSet().getExpirationTime();
+            String jwtId = signedJWT.getJWTClaimsSet().getJWTID();
+
+            if (!verified || expirationTime == null || jwtId == null) {
+                throw new AppException(ErrorCode.UNAUTHENTICATED);
+            }
+
+            if (expirationTime.toInstant().isAfter(Instant.now())) {
+                invalidatedTokenRepository.save(InvalidatedToken.builder()
+                        .id(jwtId)
+                        .expiresAt(expirationTime.toInstant())
+                        .build());
+            }
+        } catch (Exception exception) {
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
+        }
+    }
+
     private String buildScope(User user) {
         StringJoiner stringJoiner = new StringJoiner(" ");
 
@@ -96,5 +179,16 @@ public class AuthenticationService {
         if (UserStatus.DISABLED.equals(user.getStatus())) {
             throw new AppException(ErrorCode.ACCOUNT_DISABLED);
         }
+        if (UserStatus.PENDING_VERIFICATION.equals(user.getStatus())) {
+            throw new AppException(ErrorCode.ACCOUNT_NOT_VERIFIED);
+        }
+    }
+
+    private String extractBearerToken(String authorizationHeader) {
+        if (!StringUtils.hasText(authorizationHeader) || !authorizationHeader.startsWith("Bearer ")) {
+            return null;
+        }
+
+        return authorizationHeader.substring(7);
     }
 }

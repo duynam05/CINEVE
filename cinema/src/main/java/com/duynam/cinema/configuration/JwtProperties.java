@@ -14,4 +14,5 @@ import lombok.experimental.FieldDefaults;
 public class JwtProperties {
     String signerKey;
     long validDuration;
+    long refreshableDuration;
 }

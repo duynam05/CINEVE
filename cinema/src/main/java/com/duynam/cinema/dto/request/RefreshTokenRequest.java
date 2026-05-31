@@ -1,5 +1,6 @@
-package com.duynam.cinema.dto.response;
+package com.duynam.cinema.dto.request;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -12,9 +13,7 @@ import lombok.experimental.FieldDefaults;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class AuthenticationResponse {
-    String token;
+public class RefreshTokenRequest {
+    @NotBlank(message = "REFRESH_TOKEN_REQUIRED")
     String refreshToken;
-    boolean authenticated;
-    UserResponse user;
 }

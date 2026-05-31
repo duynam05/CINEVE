@@ -12,9 +12,6 @@ import lombok.experimental.FieldDefaults;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class AuthenticationResponse {
-    String token;
-    String refreshToken;
-    boolean authenticated;
-    UserResponse user;
+public class EmailVerificationResponse {
+    String verificationOtp;
 }

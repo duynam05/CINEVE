@@ -1,4 +1,4 @@
-package com.duynam.cinema.dto.response;
+package com.duynam.cinema.dto.request;
 
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -12,9 +12,6 @@ import lombok.experimental.FieldDefaults;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class AuthenticationResponse {
-    String token;
+public class LogoutRequest {
     String refreshToken;
-    boolean authenticated;
-    UserResponse user;
 }

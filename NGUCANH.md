@@ -1,0 +1,414 @@
+# Ngữ cảnh dự án CineVe
+
+## Thông tin chung
+
+- Tên dự án: CineVe - Website đặt vé xem phim trực tuyến.
+- Mục tiêu: xây dựng website đặt vé xem phim đầy đủ backend, frontend và database để học tập, đưa GitHub/CV.
+- Ngôn ngữ giao diện: tiếng Việt có dấu.
+- Backend hiện tại nằm tại: `D:\cinema\cinema`.
+- Thư mục `D:\cinema\project-web` được dùng làm ví dụ cấu trúc backend Spring Boot.
+
+## Công nghệ mục tiêu
+
+Backend:
+
+- Java 21.
+- Spring Boot 3.5.x.
+- Maven.
+- Package chính: `com.duynam.cinema`.
+- Spring Web.
+- Spring Data JPA.
+- Spring Security.
+- JWT Authentication.
+- MySQL Driver.
+- Lombok.
+- Validation.
+- Swagger / Springdoc OpenAPI.
+- BCrypt mã hóa mật khẩu.
+- RESTful API.
+- DTO Request / Response.
+- Global Exception Handler.
+
+Frontend sau này:
+
+- ReactJS.
+- Vite.
+- React Router DOM.
+- Axios.
+- React Hook Form.
+- React Toastify.
+- Recharts.
+- Bootstrap hoặc Tailwind CSS.
+- Auth Context.
+- Protected Route.
+- Admin Route.
+- Responsive UI.
+
+Database:
+
+- MySQL.
+- Database name: `cineve`.
+
+## Quy ước kiến trúc
+
+Dự án backend đi theo cấu trúc giống mẫu `project-web`, gồm các package chính:
+
+```text
+configuration
+constant
+controller
+dto/request
+dto/response
+entity
+exception
+mapper
+repository
+service
+validator
+```
+
+Nguyên tắc code:
+
+- Controller chỉ nhận request và trả response.
+- Service xử lý nghiệp vụ.
+- Repository thao tác database.
+- Entity ánh xạ bảng database.
+- DTO dùng để nhận/trả dữ liệu, không trả trực tiếp entity nếu không cần.
+- Mapper chuyển Entity sang DTO.
+- Response thống nhất qua `ApiResponse`.
+- Lỗi xử lý tập trung qua `GlobalExceptionHandler`.
+- Mật khẩu luôn mã hóa bằng BCrypt.
+- Phân quyền bằng role `USER` và `ADMIN`.
+- API admin sau này phải chặn user thường.
+
+## Giai đoạn 1 đã hoàn thành
+
+Đã triển khai backend authentication cơ bản:
+
+- Setup cấu hình backend.
+- Cấu hình MySQL database `cineve`.
+- Tạo cấu trúc package theo mẫu.
+- Tạo authentication:
+  - Đăng ký.
+  - Đăng nhập.
+  - Lấy thông tin user hiện tại.
+  - Đổi mật khẩu.
+  - JWT.
+  - BCrypt.
+  - Role `USER` / `ADMIN`.
+  - CORS.
+  - Swagger.
+  - Global exception handler.
+
+Đã mở rộng authentication:
+
+- Đăng xuất bằng cách đưa access token vào blacklist và thu hồi refresh token nếu có.
+- Refresh token, dùng cơ chế xoay vòng refresh token sau mỗi lần làm mới.
+- Quên mật khẩu giả lập, backend trả `resetToken` và `otp` trong response để test trước khi tích hợp gửi email thật.
+- Xác thực email khi đăng ký:
+  - User đăng ký xong ở trạng thái `PENDING_VERIFICATION`.
+  - Backend tạo OTP xác thực email và trả trong response để test.
+  - User gọi API xác thực email bằng OTP.
+  - Tài khoản chuyển sang `ACTIVE`.
+  - User chưa xác thực email không đăng nhập được.
+
+## API đã có
+
+Base path:
+
+```text
+/api/auth
+```
+
+Danh sách endpoint:
+
+```text
+POST /api/auth/register
+POST /api/auth/login
+POST /api/auth/refresh-token
+POST /api/auth/logout
+POST /api/auth/verify-email
+POST /api/auth/resend-verification
+POST /api/auth/forgot-password
+POST /api/auth/reset-password
+GET  /api/auth/me
+PUT  /api/auth/change-password
+```
+
+Endpoint public:
+
+```text
+POST /api/auth/register
+POST /api/auth/login
+POST /api/auth/refresh-token
+POST /api/auth/verify-email
+POST /api/auth/resend-verification
+POST /api/auth/forgot-password
+POST /api/auth/reset-password
+GET  /swagger-ui.html
+GET  /swagger-ui/**
+GET  /v3/api-docs/**
+```
+
+Các API còn lại cần header:
+
+```text
+Authorization: Bearer <token>
+```
+
+## Logic authentication hiện tại
+
+Đăng ký:
+
+- Nhận `fullName`, `email`, `phone`, `password`.
+- Chuẩn hóa email về chữ thường.
+- Kiểm tra email đã tồn tại chưa.
+- Mã hóa password bằng BCrypt.
+- Gán role mặc định `USER`.
+- Lưu user vào database.
+- Trả về `UserResponse`.
+
+Đăng nhập:
+
+- Nhận `email`, `password`.
+- Kiểm tra user tồn tại.
+- Kiểm tra tài khoản không bị `DISABLED`.
+- So khớp password bằng BCrypt.
+- Sinh JWT HS512.
+- JWT có subject là email.
+- JWT có claim `scope`, ví dụ `ROLE_USER` hoặc `ROLE_ADMIN`.
+- Trả về token và thông tin user.
+
+Lấy thông tin hiện tại:
+
+- Đọc email từ `SecurityContextHolder`.
+- Tìm user theo email.
+- Trả về `UserResponse`.
+
+Đổi mật khẩu:
+
+- Bắt buộc đăng nhập.
+- Kiểm tra mật khẩu hiện tại.
+- Mã hóa mật khẩu mới.
+- Lưu lại user.
+
+## Admin bootstrap
+
+Khi app khởi động:
+
+- Tự tạo role `USER` nếu chưa có.
+- Tự tạo role `ADMIN` nếu chưa có.
+- Nếu bật `app.bootstrap.admin.enabled=true`, tự tạo admin mặc định nếu email chưa tồn tại.
+
+Cấu hình mặc định trong `application.yaml`:
+
+```yaml
+app:
+  bootstrap:
+    admin:
+      enabled: true
+      email: admin@cineve.vn
+      password: admin123
+      full-name: Quản trị viên
+```
+
+## Cấu hình chính hiện tại
+
+File:
+
+```text
+src/main/resources/application.yaml
+```
+
+Các cấu hình quan trọng:
+
+```yaml
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/cineve}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:root}
+  jpa:
+    hibernate:
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
+
+jwt:
+  signer-key: ${JWT_SIGNER_KEY:0123456789012345678901234567890123456789012345678901234567890123}
+  valid-duration: ${JWT_VALID_DURATION:86400}
+```
+
+Lưu ý:
+
+- `signer-key` mặc định chỉ dùng để học/dev.
+- Khi làm thật hoặc deploy cần đổi qua biến môi trường `JWT_SIGNER_KEY`.
+
+## Cấu hình test
+
+Đã thêm file:
+
+```text
+src/test/resources/application.yaml
+```
+
+Test dùng H2 in-memory để không phụ thuộc MySQL local:
+
+```yaml
+spring:
+  datasource:
+    url: jdbc:h2:mem:cineve_test;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+```
+
+## File đã tạo/sửa ở Giai đoạn 1
+
+File sửa:
+
+- `pom.xml`
+- `src/main/resources/application.yaml`
+
+File thêm:
+
+- `src/main/java/com/duynam/cinema/configuration/ApplicationInitConfig.java`
+- `src/main/java/com/duynam/cinema/configuration/BootstrapAdminProperties.java`
+- `src/main/java/com/duynam/cinema/configuration/CorsProperties.java`
+- `src/main/java/com/duynam/cinema/configuration/JwtAuthenticationEntryPoint.java`
+- `src/main/java/com/duynam/cinema/configuration/JwtProperties.java`
+- `src/main/java/com/duynam/cinema/configuration/SecurityConfig.java`
+- `src/main/java/com/duynam/cinema/constant/PredefinedRole.java`
+- `src/main/java/com/duynam/cinema/constant/UserStatus.java`
+- `src/main/java/com/duynam/cinema/controller/AuthenticationController.java`
+- `src/main/java/com/duynam/cinema/dto/request/AuthenticationRequest.java`
+- `src/main/java/com/duynam/cinema/dto/request/ChangePasswordRequest.java`
+- `src/main/java/com/duynam/cinema/dto/request/RegisterRequest.java`
+- `src/main/java/com/duynam/cinema/dto/response/ApiResponse.java`
+- `src/main/java/com/duynam/cinema/dto/response/AuthenticationResponse.java`
+- `src/main/java/com/duynam/cinema/dto/response/RoleResponse.java`
+- `src/main/java/com/duynam/cinema/dto/response/UserResponse.java`
+- `src/main/java/com/duynam/cinema/entity/Role.java`
+- `src/main/java/com/duynam/cinema/entity/User.java`
+- `src/main/java/com/duynam/cinema/exception/AppException.java`
+- `src/main/java/com/duynam/cinema/exception/ErrorCode.java`
+- `src/main/java/com/duynam/cinema/exception/GlobalExceptionHandler.java`
+- `src/main/java/com/duynam/cinema/mapper/UserMapper.java`
+- `src/main/java/com/duynam/cinema/repository/RoleRepository.java`
+- `src/main/java/com/duynam/cinema/repository/UserRepository.java`
+- `src/main/java/com/duynam/cinema/service/AuthenticationService.java`
+- `src/main/java/com/duynam/cinema/service/UserService.java`
+- `src/test/resources/application.yaml`
+
+## Cách test đã dùng
+
+Command đã chạy thành công:
+
+```bash
+mvn.cmd test -q
+```
+
+Kết quả:
+
+- Test pass.
+- Context Spring Boot start được với H2.
+- JPA repository scan được `UserRepository` và `RoleRepository`.
+- Security/JWT config load được.
+
+Lưu ý môi trường:
+
+- Gọi trực tiếp `.\mvnw.cmd test` đang lỗi Maven wrapper trên PowerShell.
+- Máy có Maven cài sẵn tại `C:\dev\apache-maven-3.9.9\bin\mvn.cmd`.
+- Vì vậy hiện tại dùng `mvn.cmd` để build/test.
+
+## Cách chạy backend với MySQL
+
+Tạo database:
+
+```sql
+CREATE DATABASE cineve CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+Chạy app:
+
+```bash
+mvn.cmd spring-boot:run
+```
+
+Swagger:
+
+```text
+http://localhost:8080/swagger-ui.html
+```
+
+## Body test API
+
+Đăng ký:
+
+```http
+POST http://localhost:8080/api/auth/register
+```
+
+```json
+{
+  "fullName": "Nguyễn Văn A",
+  "email": "vana@gmail.com",
+  "phone": "0912345678",
+  "password": "123456"
+}
+```
+
+Đăng nhập:
+
+```http
+POST http://localhost:8080/api/auth/login
+```
+
+```json
+{
+  "email": "vana@gmail.com",
+  "password": "123456"
+}
+```
+
+Lấy thông tin user:
+
+```http
+GET http://localhost:8080/api/auth/me
+Authorization: Bearer <token>
+```
+
+Đổi mật khẩu:
+
+```http
+PUT http://localhost:8080/api/auth/change-password
+Authorization: Bearer <token>
+```
+
+```json
+{
+  "currentPassword": "123456",
+  "newPassword": "1234567"
+}
+```
+
+## Giai đoạn tiếp theo
+
+Theo `AGENT.md`, sau Giai đoạn 1 sẽ làm Giai đoạn 2:
+
+- Module phim.
+- Module thể loại.
+- API xem phim, tìm kiếm, lọc phim.
+- API admin quản lý phim.
+
+Đề xuất thứ tự Giai đoạn 2:
+
+1. Tạo enum trạng thái phim: `COMING_SOON`, `NOW_SHOWING`, `ENDED`, `HIDDEN`.
+2. Tạo entity `Genre`, `Movie`.
+3. Tạo repository.
+4. Tạo DTO request/response.
+5. Tạo mapper.
+6. Tạo service public để xem/tìm/lọc phim.
+7. Tạo service admin để thêm/sửa/ẩn phim.
+8. Tạo controller public `/api/movies`, `/api/genres`.
+9. Tạo controller admin `/api/admin/movies`, `/api/admin/genres`.
+10. Thêm validate và test build.

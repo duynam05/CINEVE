@@ -25,7 +25,15 @@ public enum ErrorCode {
     NEW_PASSWORD_REQUIRED(1015, "Mật khẩu mới không được để trống", HttpStatus.BAD_REQUEST),
     INVALID_CURRENT_PASSWORD(1016, "Mật khẩu hiện tại không đúng", HttpStatus.BAD_REQUEST),
     BOOTSTRAP_CONFIG_MISSING(1017, "Thiếu cấu hình tài khoản Admin mặc định", HttpStatus.INTERNAL_SERVER_ERROR),
-    TOKEN_CREATION_FAILED(1018, "Không thể tạo token đăng nhập", HttpStatus.INTERNAL_SERVER_ERROR);
+    TOKEN_CREATION_FAILED(1018, "Không thể tạo token đăng nhập", HttpStatus.INTERNAL_SERVER_ERROR),
+    ACCOUNT_NOT_VERIFIED(1019, "Tài khoản chưa xác thực email", HttpStatus.FORBIDDEN),
+    OTP_REQUIRED(1020, "Mã xác thực không được để trống", HttpStatus.BAD_REQUEST),
+    OTP_INVALID_OR_EXPIRED(1021, "Mã xác thực không đúng hoặc đã hết hạn", HttpStatus.BAD_REQUEST),
+    ACCOUNT_ALREADY_VERIFIED(1022, "Tài khoản đã được xác thực", HttpStatus.BAD_REQUEST),
+    REFRESH_TOKEN_REQUIRED(1023, "Refresh token không được để trống", HttpStatus.BAD_REQUEST),
+    REFRESH_TOKEN_INVALID_OR_EXPIRED(1024, "Refresh token không hợp lệ hoặc đã hết hạn", HttpStatus.UNAUTHORIZED),
+    RESET_TOKEN_REQUIRED(1025, "Reset token không được để trống", HttpStatus.BAD_REQUEST),
+    RESET_TOKEN_INVALID_OR_EXPIRED(1026, "Reset token không hợp lệ hoặc đã hết hạn", HttpStatus.BAD_REQUEST);
 
     private final int code;
     private final String message;
