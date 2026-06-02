@@ -33,7 +33,22 @@ public enum ErrorCode {
     REFRESH_TOKEN_REQUIRED(1023, "Refresh token không được để trống", HttpStatus.BAD_REQUEST),
     REFRESH_TOKEN_INVALID_OR_EXPIRED(1024, "Refresh token không hợp lệ hoặc đã hết hạn", HttpStatus.UNAUTHORIZED),
     RESET_TOKEN_REQUIRED(1025, "Reset token không được để trống", HttpStatus.BAD_REQUEST),
-    RESET_TOKEN_INVALID_OR_EXPIRED(1026, "Reset token không hợp lệ hoặc đã hết hạn", HttpStatus.BAD_REQUEST);
+    RESET_TOKEN_INVALID_OR_EXPIRED(1026, "Reset token không hợp lệ hoặc đã hết hạn", HttpStatus.BAD_REQUEST),
+    GENRE_NAME_REQUIRED(2001, "Tên thể loại không được để trống", HttpStatus.BAD_REQUEST),
+    GENRE_NAME_INVALID(2002, "Tên thể loại phải từ 2 đến 100 ký tự", HttpStatus.BAD_REQUEST),
+    GENRE_EXISTED(2003, "Thể loại đã tồn tại", HttpStatus.BAD_REQUEST),
+    GENRE_NOT_FOUND(2004, "Thể loại không tồn tại", HttpStatus.NOT_FOUND),
+    MOVIE_TITLE_REQUIRED(2005, "Tên phim không được để trống", HttpStatus.BAD_REQUEST),
+    MOVIE_TITLE_INVALID(2006, "Tên phim phải từ 2 đến 180 ký tự", HttpStatus.BAD_REQUEST),
+    MOVIE_EXISTED(2007, "Phim đã tồn tại", HttpStatus.BAD_REQUEST),
+    MOVIE_NOT_FOUND(2008, "Phim không tồn tại", HttpStatus.NOT_FOUND),
+    MOVIE_DURATION_REQUIRED(2009, "Thời lượng phim không được để trống", HttpStatus.BAD_REQUEST),
+    MOVIE_DURATION_INVALID(2010, "Thời lượng phim phải lớn hơn 0", HttpStatus.BAD_REQUEST),
+    MOVIE_STATUS_REQUIRED(2011, "Trạng thái phim không được để trống", HttpStatus.BAD_REQUEST),
+    MOVIE_TRAILER_NOT_FOUND(2012, "Phim chưa có trailer", HttpStatus.NOT_FOUND),
+    POSTER_FILE_REQUIRED(2013, "File poster không được để trống", HttpStatus.BAD_REQUEST),
+    POSTER_FILE_INVALID(2014, "File poster phải là ảnh", HttpStatus.BAD_REQUEST),
+    POSTER_UPLOAD_FAILED(2015, "Không thể upload poster", HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final int code;
     private final String message;

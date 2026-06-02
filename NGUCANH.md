@@ -165,19 +165,71 @@ Authorization: Bearer <token>
 - Kiểm tra email đã tồn tại chưa.
 - Mã hóa password bằng BCrypt.
 - Gán role mặc định `USER`.
+- Gán trạng thái ban đầu `PENDING_VERIFICATION`.
 - Lưu user vào database.
-- Trả về `UserResponse`.
+- Tạo OTP xác thực email, lưu vào bảng `auth_tokens` với type `EMAIL_VERIFICATION`.
+- Trả về `RegisterResponse` gồm `user` và `verificationOtp` để test.
+
+Xác thực email:
+
+- Nhận `email`, `otp`.
+- Tìm OTP còn hiệu lực, chưa dùng trong bảng `auth_tokens`.
+- Nếu OTP hợp lệ, chuyển user sang `ACTIVE`.
+- Đánh dấu token đã dùng bằng `usedAt`.
+- User chưa `ACTIVE` không đăng nhập được.
+
+Gửi lại mã xác thực:
+
+- Nhận `email`.
+- Chỉ áp dụng cho tài khoản chưa xác thực.
+- Tạo OTP xác thực email mới.
+- Trả `verificationOtp` trong response để test.
 
 Đăng nhập:
 
 - Nhận `email`, `password`.
 - Kiểm tra user tồn tại.
 - Kiểm tra tài khoản không bị `DISABLED`.
+- Kiểm tra tài khoản đã xác thực email, trạng thái phải là `ACTIVE`.
 - So khớp password bằng BCrypt.
 - Sinh JWT HS512.
 - JWT có subject là email.
 - JWT có claim `scope`, ví dụ `ROLE_USER` hoặc `ROLE_ADMIN`.
-- Trả về token và thông tin user.
+- JWT có `jti` để phục vụ blacklist khi logout.
+- Tạo refresh token, lưu vào bảng `refresh_tokens`.
+- Trả về access token, refresh token và thông tin user.
+
+Refresh token:
+
+- Nhận `refreshToken`.
+- Kiểm tra token tồn tại, chưa bị revoke, chưa hết hạn.
+- Kiểm tra user vẫn còn `ACTIVE`.
+- Revoke refresh token cũ.
+- Tạo access token mới và refresh token mới.
+- Trả về cặp token mới.
+
+Đăng xuất:
+
+- Endpoint cần Bearer access token.
+- Đọc `jti` và thời hạn của access token.
+- Lưu `jti` vào bảng `invalidated_tokens`.
+- Nếu request có `refreshToken`, revoke refresh token đó.
+- Các API bảo vệ sẽ từ chối access token đã nằm trong blacklist.
+
+Quên mật khẩu:
+
+- Nhận `email`.
+- Kiểm tra user tồn tại và không bị khóa.
+- Tạo reset token và OTP, lưu vào bảng `auth_tokens` với type `PASSWORD_RESET`.
+- Trả `resetToken` và `otp` trong response để test, chưa gửi email thật.
+
+Đặt lại mật khẩu:
+
+- Nhận `resetToken`, `newPassword`.
+- Kiểm tra reset token tồn tại, chưa dùng, chưa hết hạn.
+- Mã hóa mật khẩu mới bằng BCrypt.
+- Lưu lại user.
+- Đánh dấu reset token đã dùng.
 
 Lấy thông tin hiện tại:
 
@@ -235,12 +287,15 @@ spring:
 jwt:
   signer-key: ${JWT_SIGNER_KEY:0123456789012345678901234567890123456789012345678901234567890123}
   valid-duration: ${JWT_VALID_DURATION:86400}
+  refreshable-duration: ${JWT_REFRESHABLE_DURATION:604800}
 ```
 
 Lưu ý:
 
 - `signer-key` mặc định chỉ dùng để học/dev.
 - Khi làm thật hoặc deploy cần đổi qua biến môi trường `JWT_SIGNER_KEY`.
+- `valid-duration` là thời hạn access token, mặc định 86400 giây.
+- `refreshable-duration` là thời hạn refresh token, mặc định 604800 giây.
 
 ## Cấu hình test
 
@@ -311,7 +366,7 @@ Kết quả:
 
 - Test pass.
 - Context Spring Boot start được với H2.
-- JPA repository scan được `UserRepository` và `RoleRepository`.
+- JPA repository scan được `UserRepository`, `RoleRepository`, `AuthTokenRepository`, `RefreshTokenRepository`, `InvalidatedTokenRepository`.
 - Security/JWT config load được.
 
 Lưu ý môi trường:
@@ -342,6 +397,19 @@ http://localhost:8080/swagger-ui.html
 
 ## Body test API
 
+Luồng test authentication khuyến nghị:
+
+1. Đăng ký.
+2. Lấy `verificationOtp` trong response.
+3. Thử đăng nhập trước khi xác thực để kiểm tra lỗi `ACCOUNT_NOT_VERIFIED`.
+4. Xác thực email bằng OTP.
+5. Đăng nhập lại để lấy `token` và `refreshToken`.
+6. Gọi `/api/auth/me`.
+7. Refresh token.
+8. Đổi mật khẩu.
+9. Test quên mật khẩu và reset mật khẩu.
+10. Đăng xuất và kiểm tra access token cũ không dùng lại được.
+
 Đăng ký:
 
 ```http
@@ -357,6 +425,43 @@ POST http://localhost:8080/api/auth/register
 }
 ```
 
+Response đăng ký sẽ trả `verificationOtp` để test:
+
+```json
+{
+  "user": {
+    "email": "vana@gmail.com",
+    "status": "PENDING_VERIFICATION"
+  },
+  "verificationOtp": "123456"
+}
+```
+
+Xác thực email:
+
+```http
+POST http://localhost:8080/api/auth/verify-email
+```
+
+```json
+{
+  "email": "vana@gmail.com",
+  "otp": "OTP_LAY_TU_RESPONSE_DANG_KY"
+}
+```
+
+Gửi lại OTP xác thực email:
+
+```http
+POST http://localhost:8080/api/auth/resend-verification
+```
+
+```json
+{
+  "email": "vana@gmail.com"
+}
+```
+
 Đăng nhập:
 
 ```http
@@ -367,6 +472,20 @@ POST http://localhost:8080/api/auth/login
 {
   "email": "vana@gmail.com",
   "password": "123456"
+}
+```
+
+Response đăng nhập trả `token` và `refreshToken`.
+
+Refresh token:
+
+```http
+POST http://localhost:8080/api/auth/refresh-token
+```
+
+```json
+{
+  "refreshToken": "REFRESH_TOKEN"
 }
 ```
 
@@ -390,6 +509,84 @@ Authorization: Bearer <token>
   "newPassword": "1234567"
 }
 ```
+
+Quên mật khẩu:
+
+```http
+POST http://localhost:8080/api/auth/forgot-password
+```
+
+```json
+{
+  "email": "vana@gmail.com"
+}
+```
+
+Response trả `resetToken` và `otp` để test.
+
+Đặt lại mật khẩu:
+
+```http
+POST http://localhost:8080/api/auth/reset-password
+```
+
+```json
+{
+  "resetToken": "RESET_TOKEN",
+  "newPassword": "12345678"
+}
+```
+
+Đăng xuất:
+
+```http
+POST http://localhost:8080/api/auth/logout
+Authorization: Bearer <token>
+```
+
+```json
+{
+  "refreshToken": "REFRESH_TOKEN"
+}
+```
+
+Sau khi logout:
+
+- Dùng lại access token cũ gọi `/api/auth/me` sẽ bị từ chối.
+- Dùng lại refresh token cũ gọi `/api/auth/refresh-token` sẽ bị từ chối.
+
+## File đã tạo/sửa khi mở rộng authentication
+
+File sửa:
+
+- `src/main/resources/application.yaml`
+- `src/main/java/com/duynam/cinema/configuration/JwtProperties.java`
+- `src/main/java/com/duynam/cinema/configuration/SecurityConfig.java`
+- `src/main/java/com/duynam/cinema/constant/UserStatus.java`
+- `src/main/java/com/duynam/cinema/controller/AuthenticationController.java`
+- `src/main/java/com/duynam/cinema/dto/response/AuthenticationResponse.java`
+- `src/main/java/com/duynam/cinema/exception/ErrorCode.java`
+- `src/main/java/com/duynam/cinema/service/AuthenticationService.java`
+- `src/main/java/com/duynam/cinema/service/UserService.java`
+
+File thêm:
+
+- `src/main/java/com/duynam/cinema/constant/AuthTokenType.java`
+- `src/main/java/com/duynam/cinema/entity/AuthToken.java`
+- `src/main/java/com/duynam/cinema/entity/InvalidatedToken.java`
+- `src/main/java/com/duynam/cinema/entity/RefreshToken.java`
+- `src/main/java/com/duynam/cinema/repository/AuthTokenRepository.java`
+- `src/main/java/com/duynam/cinema/repository/InvalidatedTokenRepository.java`
+- `src/main/java/com/duynam/cinema/repository/RefreshTokenRepository.java`
+- `src/main/java/com/duynam/cinema/dto/request/ForgotPasswordRequest.java`
+- `src/main/java/com/duynam/cinema/dto/request/LogoutRequest.java`
+- `src/main/java/com/duynam/cinema/dto/request/RefreshTokenRequest.java`
+- `src/main/java/com/duynam/cinema/dto/request/ResendEmailVerificationRequest.java`
+- `src/main/java/com/duynam/cinema/dto/request/ResetPasswordRequest.java`
+- `src/main/java/com/duynam/cinema/dto/request/VerifyEmailRequest.java`
+- `src/main/java/com/duynam/cinema/dto/response/EmailVerificationResponse.java`
+- `src/main/java/com/duynam/cinema/dto/response/ForgotPasswordResponse.java`
+- `src/main/java/com/duynam/cinema/dto/response/RegisterResponse.java`
 
 ## Giai đoạn tiếp theo
 
