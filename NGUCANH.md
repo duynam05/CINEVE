@@ -588,24 +588,738 @@ File thêm:
 - `src/main/java/com/duynam/cinema/dto/response/ForgotPasswordResponse.java`
 - `src/main/java/com/duynam/cinema/dto/response/RegisterResponse.java`
 
+## Giai đoạn 2 đã hoàn thành
+
+Đã triển khai backend module phim và thể loại:
+
+- Tạo enum trạng thái phim: `COMING_SOON`, `NOW_SHOWING`, `ENDED`, `HIDDEN`.
+- Tạo entity `Genre`, `Movie`.
+- Tạo repository cho phim và thể loại.
+- Tạo DTO request/response.
+- Tạo mapper.
+- Tạo service xử lý public và admin.
+- Tạo API public xem danh sách, chi tiết, tìm kiếm, lọc phim.
+- Tạo API public xem danh sách và chi tiết thể loại.
+- Tạo API admin thêm/sửa/ẩn phim.
+- Tạo API admin thêm/sửa/ẩn thể loại.
+- Tạo API public xem trailer phim.
+- Tạo API admin upload poster phim local.
+- Cấu hình public static resource `/uploads/**` để frontend/browser xem poster đã upload.
+
+## Logic phim và thể loại hiện tại
+
+Thể loại:
+
+- Entity `Genre` có các field chính: `id`, `name`, `slug`, `description`, `active`, `createdAt`, `updatedAt`.
+- Public API chỉ trả thể loại có `active = true`.
+- Admin API xem được cả thể loại đang active và đã ẩn.
+- Khi ẩn thể loại, backend không xóa cứng mà set `active = false`.
+- Muốn hiện lại thể loại đã ẩn thì gọi `PUT /api/admin/genres/{id}` để cập nhật, service sẽ set lại `active = true`.
+
+Phim:
+
+- Entity `Movie` có các field chính:
+  - `id`
+  - `title`
+  - `slug`
+  - `description`
+  - `durationMinutes`
+  - `director`
+  - `actors`
+  - `language`
+  - `country`
+  - `ageRating`
+  - `releaseDate`
+  - `posterUrl`
+  - `trailerUrl`
+  - `status`
+  - `genres`
+  - `createdAt`
+  - `updatedAt`
+- Public API chỉ ẩn phim có `status = HIDDEN`.
+- Các trạng thái `NOW_SHOWING`, `COMING_SOON`, `ENDED` đều được xem là đang hiển thị ở public API.
+- Khi gọi API ẩn phim, backend set `status = HIDDEN`.
+- Muốn hiện lại phim đã ẩn thì gọi:
+
+```http
+PATCH /api/admin/movies/{movieId}/status?status=NOW_SHOWING
+```
+
+hoặc đổi sang:
+
+```text
+COMING_SOON
+ENDED
+```
+
+Trailer:
+
+- Hiện tại trailer được lưu bằng field `trailerUrl`.
+- API chi tiết phim cũng trả `trailerUrl`.
+- Đã thêm API riêng để frontend lấy trailer rõ ràng hơn:
+
+```http
+GET /api/movies/{id}/trailer
+```
+
+- Nếu phim chưa có trailer, backend trả lỗi `MOVIE_TRAILER_NOT_FOUND`.
+
+Poster:
+
+- Khi tạo/sửa phim, admin vẫn có thể truyền `posterUrl` thủ công.
+- Đã thêm upload poster thật ở mức local dev:
+
+```http
+POST /api/admin/movies/{id}/poster
+```
+
+- Request dùng `multipart/form-data`, field file tên là `file`.
+- File upload được lưu vào:
+
+```text
+uploads/posters/
+```
+
+- Sau upload, `posterUrl` được cập nhật dạng:
+
+```text
+/uploads/posters/<ten-file>
+```
+
+- Browser/frontend có thể xem ảnh qua:
+
+```text
+http://localhost:8080/uploads/posters/<ten-file>
+```
+
+Lưu ý:
+
+- Upload poster hiện tại chỉ lưu local, phù hợp giai đoạn học tập/dev.
+- Khi deploy thật có thể đổi sang Cloudinary, S3 hoặc Firebase Storage.
+- Chưa triển khai đánh giá phim vì nghiệp vụ đúng cần module booking/ticket để kiểm tra user đã đặt vé phim đó hay chưa.
+
+## API phim và thể loại đã có
+
+Public API:
+
+```text
+GET /api/genres
+GET /api/genres/{id}
+GET /api/movies
+GET /api/movies?keyword=&genreId=&status=&language=&country=
+GET /api/movies/now-showing
+GET /api/movies/coming-soon
+GET /api/movies/{id}
+GET /api/movies/{id}/trailer
+GET /uploads/**
+```
+
+Admin API:
+
+```text
+GET    /api/admin/genres
+POST   /api/admin/genres
+PUT    /api/admin/genres/{id}
+DELETE /api/admin/genres/{id}
+
+GET    /api/admin/movies
+GET    /api/admin/movies/{id}
+POST   /api/admin/movies
+PUT    /api/admin/movies/{id}
+PATCH  /api/admin/movies/{id}/status?status=NOW_SHOWING
+POST   /api/admin/movies/{id}/poster
+DELETE /api/admin/movies/{id}
+```
+
+Admin API cần header:
+
+```text
+Authorization: Bearer <admin_token>
+```
+
+## Body test API giai đoạn 2
+
+Tạo thể loại:
+
+```http
+POST http://localhost:8080/api/admin/genres
+Authorization: Bearer <admin_token>
+```
+
+```json
+{
+  "name": "Hành động",
+  "description": "Phim hành động, kịch tính"
+}
+```
+
+Cập nhật thể loại:
+
+```http
+PUT http://localhost:8080/api/admin/genres/{genreId}
+Authorization: Bearer <admin_token>
+```
+
+```json
+{
+  "name": "Hành động",
+  "description": "Phim hành động tốc độ cao"
+}
+```
+
+Ẩn thể loại:
+
+```http
+DELETE http://localhost:8080/api/admin/genres/{genreId}
+Authorization: Bearer <admin_token>
+```
+
+Hiện lại thể loại:
+
+```http
+PUT http://localhost:8080/api/admin/genres/{genreId}
+Authorization: Bearer <admin_token>
+```
+
+```json
+{
+  "name": "Hành động",
+  "description": "Phim hành động, kịch tính"
+}
+```
+
+Tạo phim:
+
+```http
+POST http://localhost:8080/api/admin/movies
+Authorization: Bearer <admin_token>
+```
+
+```json
+{
+  "title": "Lật Mặt 9",
+  "description": "Một bộ phim hành động Việt Nam.",
+  "durationMinutes": 120,
+  "director": "Lý Hải",
+  "actors": "Diễn viên A, Diễn viên B",
+  "language": "Tiếng Việt",
+  "country": "Việt Nam",
+  "ageRating": "T13",
+  "releaseDate": "2026-06-10",
+  "posterUrl": "https://example.com/poster.jpg",
+  "trailerUrl": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+  "status": "NOW_SHOWING",
+  "genreIds": ["GENRE_ID"]
+}
+```
+
+Cập nhật trạng thái phim:
+
+```http
+PATCH http://localhost:8080/api/admin/movies/{movieId}/status?status=HIDDEN
+Authorization: Bearer <admin_token>
+```
+
+Hiện lại phim đã ẩn:
+
+```http
+PATCH http://localhost:8080/api/admin/movies/{movieId}/status?status=NOW_SHOWING
+Authorization: Bearer <admin_token>
+```
+
+Lấy trailer phim:
+
+```http
+GET http://localhost:8080/api/movies/{movieId}/trailer
+```
+
+Upload poster bằng Postman:
+
+- Method: `POST`
+- URL: `http://localhost:8080/api/admin/movies/{movieId}/poster`
+- Header: `Authorization: Bearer <admin_token>`
+- Body: `form-data`
+- Key: `file`
+- Type: `File`
+- Chọn ảnh `.jpg`, `.png`, `.webp`
+
+## File đã tạo/sửa ở Giai đoạn 2
+
+File sửa:
+
+- `src/main/java/com/duynam/cinema/configuration/SecurityConfig.java`
+- `src/main/java/com/duynam/cinema/exception/ErrorCode.java`
+
+File thêm:
+
+- `src/main/java/com/duynam/cinema/configuration/WebMvcConfig.java`
+- `src/main/java/com/duynam/cinema/constant/MovieStatus.java`
+- `src/main/java/com/duynam/cinema/controller/AdminGenreController.java`
+- `src/main/java/com/duynam/cinema/controller/AdminMovieController.java`
+- `src/main/java/com/duynam/cinema/controller/GenreController.java`
+- `src/main/java/com/duynam/cinema/controller/MovieController.java`
+- `src/main/java/com/duynam/cinema/dto/request/GenreRequest.java`
+- `src/main/java/com/duynam/cinema/dto/request/MovieRequest.java`
+- `src/main/java/com/duynam/cinema/dto/response/GenreResponse.java`
+- `src/main/java/com/duynam/cinema/dto/response/MovieResponse.java`
+- `src/main/java/com/duynam/cinema/dto/response/MovieTrailerResponse.java`
+- `src/main/java/com/duynam/cinema/entity/Genre.java`
+- `src/main/java/com/duynam/cinema/entity/Movie.java`
+- `src/main/java/com/duynam/cinema/mapper/GenreMapper.java`
+- `src/main/java/com/duynam/cinema/mapper/MovieMapper.java`
+- `src/main/java/com/duynam/cinema/repository/GenreRepository.java`
+- `src/main/java/com/duynam/cinema/repository/MovieRepository.java`
+- `src/main/java/com/duynam/cinema/service/GenreService.java`
+- `src/main/java/com/duynam/cinema/service/MovieService.java`
+
+## Cách test đã dùng sau Giai đoạn 2
+
+Command đã chạy thành công:
+
+```bash
+mvn.cmd test -q
+```
+
+Kết quả:
+
+- Test pass.
+- Spring Boot context start được với H2.
+- JPA repository scan được 7 repository:
+  - `UserRepository`
+  - `RoleRepository`
+  - `AuthTokenRepository`
+  - `RefreshTokenRepository`
+  - `InvalidatedTokenRepository`
+  - `GenreRepository`
+  - `MovieRepository`
+- Static resource `/uploads/**` load được.
+
 ## Giai đoạn tiếp theo
 
-Theo `AGENT.md`, sau Giai đoạn 1 sẽ làm Giai đoạn 2:
+Theo `AGENT.md`, sau Giai đoạn 2 sẽ làm Giai đoạn 3:
 
-- Module phim.
-- Module thể loại.
-- API xem phim, tìm kiếm, lọc phim.
-- API admin quản lý phim.
+- Module rạp.
+- Module phòng chiếu.
+- Module ghế.
+- Chức năng tạo ghế tự động.
 
-Đề xuất thứ tự Giai đoạn 2:
+Đề xuất thứ tự Giai đoạn 3:
 
-1. Tạo enum trạng thái phim: `COMING_SOON`, `NOW_SHOWING`, `ENDED`, `HIDDEN`.
-2. Tạo entity `Genre`, `Movie`.
+1. Tạo enum trạng thái rạp/phòng/ghế.
+2. Tạo entity `Cinema`, `Room`, `Seat`.
 3. Tạo repository.
 4. Tạo DTO request/response.
 5. Tạo mapper.
-6. Tạo service public để xem/tìm/lọc phim.
-7. Tạo service admin để thêm/sửa/ẩn phim.
-8. Tạo controller public `/api/movies`, `/api/genres`.
-9. Tạo controller admin `/api/admin/movies`, `/api/admin/genres`.
-10. Thêm validate và test build.
+6. Tạo service public xem danh sách rạp.
+7. Tạo service admin quản lý rạp/phòng.
+8. Tạo logic admin tạo ghế tự động theo số hàng và số cột.
+9. Tạo controller public `/api/cinemas`.
+10. Tạo controller admin `/api/admin/cinemas`, `/api/admin/rooms`, `/api/admin/seats`.
+11. Thêm validate và test build.
+## Giai đoạn 3 đã hoàn thành
+
+Đã triển khai backend module rạp, phòng chiếu và ghế:
+
+- Tạo enum trạng thái rạp: `ACTIVE`, `HIDDEN`.
+- Tạo enum loại phòng: `TWO_D`, `THREE_D`, `IMAX`, `VIP`.
+- Tạo enum trạng thái phòng: `ACTIVE`, `MAINTENANCE`, `DISABLED`.
+- Tạo enum loại ghế: `NORMAL`, `VIP`, `COUPLE`.
+- Tạo enum trạng thái ghế: `ACTIVE`, `MAINTENANCE`, `DISABLED`.
+- Tạo entity `Cinema`, `Room`, `Seat`.
+- Tạo repository cho rạp, phòng chiếu và ghế.
+- Tạo DTO request/response.
+- Tạo mapper.
+- Tạo service public xem danh sách/chi tiết rạp.
+- Tạo service admin quản lý rạp, phòng chiếu, ghế.
+- Tạo API admin tạo ghế tự động theo số hàng và số cột của phòng.
+- Cấu hình public endpoint `/api/cinemas/**`.
+
+## Logic rạp, phòng chiếu và ghế hiện tại
+
+Rạp:
+
+- Entity `Cinema` có các field chính: `id`, `name`, `slug`, `address`, `city`, `phone`, `email`, `description`, `status`, `createdAt`, `updatedAt`.
+- Public API chỉ trả rạp có `status = ACTIVE`.
+- Admin API xem được cả rạp `ACTIVE` và `HIDDEN`.
+- Khi xóa rạp, backend không xóa cứng mà set `status = HIDDEN`.
+- Muốn hiện lại rạp đã ẩn thì gọi:
+
+```http
+PATCH /api/admin/cinemas/{cinemaId}/status?status=ACTIVE
+```
+
+Phòng chiếu:
+
+- Entity `Room` có các field chính: `id`, `cinema`, `name`, `rowCount`, `columnCount`, `type`, `status`, `createdAt`, `updatedAt`.
+- Một rạp không được có hai phòng trùng tên.
+- Khi xóa phòng, backend không xóa cứng mà set `status = DISABLED`.
+- Muốn mở lại phòng thì gọi:
+
+```http
+PATCH /api/admin/rooms/{roomId}/status?status=ACTIVE
+```
+
+Ghế:
+
+- Entity `Seat` có các field chính: `id`, `room`, `code`, `rowName`, `columnNumber`, `type`, `status`, `createdAt`, `updatedAt`.
+- Mã ghế dạng `A1`, `A2`, `B1`, `B2`.
+- Một phòng không được có hai ghế trùng mã.
+- Khi tạo ghế thủ công, backend kiểm tra vị trí ghế không vượt quá `rowCount` và `columnCount` của phòng.
+- Khi ẩn ghế, backend không xóa cứng mà set `status = DISABLED`.
+
+Tạo ghế tự động:
+
+- Gọi API:
+
+```http
+POST /api/admin/rooms/{roomId}/seats/generate
+```
+
+- Backend xóa layout ghế cũ của phòng và sinh lại toàn bộ ghế theo `rowCount` và `columnCount`.
+- Hàng ghế sinh từ `A` đến tối đa `Z`.
+- Phòng loại `VIP` sinh toàn bộ ghế loại `VIP`.
+- Phòng thường sinh nửa đầu là `NORMAL`, nửa sau là `VIP`, hàng cuối là `COUPLE` nếu phòng có từ 2 cột trở lên.
+
+## API rạp, phòng chiếu và ghế đã có
+
+Public API:
+
+```text
+GET /api/cinemas
+GET /api/cinemas?city=
+GET /api/cinemas/{id}
+```
+
+Admin API:
+
+```text
+GET    /api/admin/cinemas
+GET    /api/admin/cinemas/{id}
+POST   /api/admin/cinemas
+PUT    /api/admin/cinemas/{id}
+PATCH  /api/admin/cinemas/{id}/status?status=ACTIVE
+DELETE /api/admin/cinemas/{id}
+
+GET    /api/admin/rooms
+GET    /api/admin/rooms?cinemaId=
+GET    /api/admin/rooms/{id}
+POST   /api/admin/rooms
+PUT    /api/admin/rooms/{id}
+PATCH  /api/admin/rooms/{id}/status?status=ACTIVE
+POST   /api/admin/rooms/{id}/seats/generate
+DELETE /api/admin/rooms/{id}
+
+GET    /api/admin/seats?roomId=
+POST   /api/admin/seats
+PUT    /api/admin/seats/{id}
+PATCH  /api/admin/seats/{id}/status?status=ACTIVE
+DELETE /api/admin/seats/{id}
+```
+
+Admin API cần header:
+
+```text
+Authorization: Bearer <admin_token>
+```
+
+## Body test API giai đoạn 3
+
+Tạo rạp:
+
+```http
+POST http://localhost:8080/api/admin/cinemas
+Authorization: Bearer <admin_token>
+```
+
+```json
+{
+  "name": "CineVe Nguyễn Trãi",
+  "address": "123 Nguyễn Trãi, Quận 1",
+  "city": "TP. Hồ Chí Minh",
+  "phone": "0912345678",
+  "email": "nguyentrai@cineve.vn",
+  "description": "Rạp CineVe trung tâm thành phố",
+  "status": "ACTIVE"
+}
+```
+
+Tạo phòng chiếu:
+
+```http
+POST http://localhost:8080/api/admin/rooms
+Authorization: Bearer <admin_token>
+```
+
+```json
+{
+  "cinemaId": "CINEMA_ID",
+  "name": "Phòng 01",
+  "rowCount": 8,
+  "columnCount": 12,
+  "type": "TWO_D",
+  "status": "ACTIVE"
+}
+```
+
+Tạo ghế tự động:
+
+```http
+POST http://localhost:8080/api/admin/rooms/{roomId}/seats/generate
+Authorization: Bearer <admin_token>
+```
+
+Xem ghế theo phòng:
+
+```http
+GET http://localhost:8080/api/admin/seats?roomId={roomId}
+Authorization: Bearer <admin_token>
+```
+
+Cập nhật ghế thủ công:
+
+```http
+PUT http://localhost:8080/api/admin/seats/{seatId}
+Authorization: Bearer <admin_token>
+```
+
+```json
+{
+  "roomId": "ROOM_ID",
+  "rowName": "A",
+  "columnNumber": 1,
+  "type": "VIP",
+  "status": "ACTIVE"
+}
+```
+
+## File đã tạo/sửa ở Giai đoạn 3
+
+File sửa:
+
+- `src/main/java/com/duynam/cinema/configuration/SecurityConfig.java`
+- `src/main/java/com/duynam/cinema/exception/ErrorCode.java`
+- `NGUCANH.md`
+
+File thêm:
+
+- `src/main/java/com/duynam/cinema/constant/CinemaStatus.java`
+- `src/main/java/com/duynam/cinema/constant/RoomStatus.java`
+- `src/main/java/com/duynam/cinema/constant/RoomType.java`
+- `src/main/java/com/duynam/cinema/constant/SeatStatus.java`
+- `src/main/java/com/duynam/cinema/constant/SeatType.java`
+- `src/main/java/com/duynam/cinema/controller/AdminCinemaController.java`
+- `src/main/java/com/duynam/cinema/controller/AdminRoomController.java`
+- `src/main/java/com/duynam/cinema/controller/AdminSeatController.java`
+- `src/main/java/com/duynam/cinema/controller/CinemaController.java`
+- `src/main/java/com/duynam/cinema/dto/request/CinemaRequest.java`
+- `src/main/java/com/duynam/cinema/dto/request/RoomRequest.java`
+- `src/main/java/com/duynam/cinema/dto/request/SeatRequest.java`
+- `src/main/java/com/duynam/cinema/dto/response/CinemaResponse.java`
+- `src/main/java/com/duynam/cinema/dto/response/RoomResponse.java`
+- `src/main/java/com/duynam/cinema/dto/response/SeatResponse.java`
+- `src/main/java/com/duynam/cinema/entity/Cinema.java`
+- `src/main/java/com/duynam/cinema/entity/Room.java`
+- `src/main/java/com/duynam/cinema/entity/Seat.java`
+- `src/main/java/com/duynam/cinema/mapper/CinemaMapper.java`
+- `src/main/java/com/duynam/cinema/mapper/RoomMapper.java`
+- `src/main/java/com/duynam/cinema/mapper/SeatMapper.java`
+- `src/main/java/com/duynam/cinema/repository/CinemaRepository.java`
+- `src/main/java/com/duynam/cinema/repository/RoomRepository.java`
+- `src/main/java/com/duynam/cinema/repository/SeatRepository.java`
+- `src/main/java/com/duynam/cinema/service/CinemaService.java`
+- `src/main/java/com/duynam/cinema/service/RoomService.java`
+- `src/main/java/com/duynam/cinema/service/SeatService.java`
+
+## Cách test đã dùng sau Giai đoạn 3
+
+Command đã chạy thành công:
+
+```bash
+mvn.cmd test -q
+```
+
+Kết quả:
+
+- Test pass.
+- Spring Boot context start được với H2.
+- JPA repository scan được 10 repository: `UserRepository`, `RoleRepository`, `AuthTokenRepository`, `RefreshTokenRepository`, `InvalidatedTokenRepository`, `GenreRepository`, `MovieRepository`, `CinemaRepository`, `RoomRepository`, `SeatRepository`.
+
+## Giai đoạn tiếp theo
+
+Sau Giai đoạn 3 sẽ làm Giai đoạn 4:
+
+- Module suất chiếu.
+- Kiểm tra trùng thời gian chiếu trong cùng một phòng.
+- API lấy ghế theo suất chiếu, có trạng thái ghế đã đặt/còn trống theo booking.
+## Giai đoạn 3 theo AGENT.md mới đã hoàn thành
+
+Đã triển khai backend module quản lý người dùng:
+
+- User xem thông tin cá nhân qua `/api/users/me`.
+- User cập nhật thông tin cá nhân qua `/api/users/me`.
+- Admin xem danh sách người dùng.
+- Admin tìm kiếm người dùng theo `keyword`.
+- Admin lọc người dùng theo `status` và `role`.
+- Admin xem chi tiết người dùng.
+- Admin khóa tài khoản.
+- Admin mở khóa tài khoản.
+- Admin vô hiệu hóa tài khoản.
+
+Lưu ý:
+
+- Các API auth cũ vẫn giữ nguyên, gồm `GET /api/auth/me` và `PUT /api/auth/change-password`.
+- API `/api/users/me` là endpoint profile đúng theo giai đoạn 3 mới.
+- Khóa tài khoản và vô hiệu hóa tài khoản hiện đều set `status = DISABLED`.
+- Mở khóa tài khoản set `status = ACTIVE`.
+- Chưa cho admin sửa role user ở giai đoạn này vì AGENT.md giai đoạn 3 chỉ yêu cầu tìm/lọc theo role, khóa/mở khóa/vô hiệu hóa.
+
+## API quản lý người dùng đã có
+
+User API:
+
+```text
+GET /api/users/me
+PUT /api/users/me
+```
+
+Admin API:
+
+```text
+GET    /api/admin/users
+GET    /api/admin/users?keyword=&status=&role=
+GET    /api/admin/users/{id}
+PUT    /api/admin/users/{id}/lock
+PUT    /api/admin/users/{id}/unlock
+DELETE /api/admin/users/{id}
+```
+
+Các API này cần header:
+
+```text
+Authorization: Bearer <token>
+```
+
+Riêng `/api/admin/users/**` cần token role `ADMIN`.
+
+## Body test API quản lý người dùng
+
+Lấy thông tin cá nhân:
+
+```http
+GET http://localhost:8080/api/users/me
+Authorization: Bearer <user_token>
+```
+
+Cập nhật thông tin cá nhân:
+
+```http
+PUT http://localhost:8080/api/users/me
+Authorization: Bearer <user_token>
+```
+
+```json
+{
+  "fullName": "Nguyễn Văn A",
+  "phone": "0912345678"
+}
+```
+
+Admin xem danh sách người dùng:
+
+```http
+GET http://localhost:8080/api/admin/users
+Authorization: Bearer <admin_token>
+```
+
+Admin tìm kiếm người dùng:
+
+```http
+GET http://localhost:8080/api/admin/users?keyword=vana
+Authorization: Bearer <admin_token>
+```
+
+Admin lọc theo trạng thái:
+
+```http
+GET http://localhost:8080/api/admin/users?status=ACTIVE
+Authorization: Bearer <admin_token>
+```
+
+Trạng thái hợp lệ:
+
+```text
+PENDING_VERIFICATION
+ACTIVE
+DISABLED
+```
+
+Admin lọc theo role:
+
+```http
+GET http://localhost:8080/api/admin/users?role=USER
+Authorization: Bearer <admin_token>
+```
+
+Role hợp lệ hiện tại:
+
+```text
+USER
+ADMIN
+```
+
+Admin xem chi tiết người dùng:
+
+```http
+GET http://localhost:8080/api/admin/users/{userId}
+Authorization: Bearer <admin_token>
+```
+
+Admin khóa tài khoản:
+
+```http
+PUT http://localhost:8080/api/admin/users/{userId}/lock
+Authorization: Bearer <admin_token>
+```
+
+Admin mở khóa tài khoản:
+
+```http
+PUT http://localhost:8080/api/admin/users/{userId}/unlock
+Authorization: Bearer <admin_token>
+```
+
+Admin vô hiệu hóa tài khoản:
+
+```http
+DELETE http://localhost:8080/api/admin/users/{userId}
+Authorization: Bearer <admin_token>
+```
+
+## File đã tạo/sửa ở giai đoạn 3 theo AGENT.md mới
+
+File thêm:
+
+- `src/main/java/com/duynam/cinema/controller/UserController.java`
+- `src/main/java/com/duynam/cinema/controller/AdminUserController.java`
+- `src/main/java/com/duynam/cinema/dto/request/UserUpdateRequest.java`
+
+File sửa:
+
+- `src/main/java/com/duynam/cinema/repository/UserRepository.java`
+- `src/main/java/com/duynam/cinema/service/UserService.java`
+- `NGUCANH.md`
+
+## Cách test đã dùng sau khi hoàn thiện giai đoạn 3 mới
+
+Command đã chạy thành công:
+
+```bash
+mvn.cmd test -q
+```
+
+Kết quả:
+
+- Test pass.
+- Spring Boot context start được với H2.
+- Query tìm/lọc user trong `UserRepository` load được.
+- JPA repository scan được 10 repository.

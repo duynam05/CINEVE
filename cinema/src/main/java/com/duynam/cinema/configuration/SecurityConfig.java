@@ -47,6 +47,7 @@ public class SecurityConfig {
             "/api/auth/reset-password",
             "/api/genres/**",
             "/api/movies/**",
+            "/api/cinemas/**",
             "/uploads/**",
             "/v3/api-docs/**",
             "/swagger-ui/**",

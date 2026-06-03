@@ -809,67 +809,475 @@ Admin dashboard cần có:
 
 Hãy triển khai dự án theo thứ tự sau:
 
-Giai đoạn 1:
+==================================================
+6. THỨ TỰ TRIỂN KHAI
+====================
 
-* Setup backend.
-* Cấu hình database.
-* Tạo cấu trúc package.
-* Tạo Auth: đăng ký, đăng nhập, JWT, phân quyền USER / ADMIN.
+Giai đoạn 1: Setup nền tảng backend
 
-Giai đoạn 2:
+* Setup project Spring Boot.
+* Cấu hình MySQL.
+* Cấu hình application.yml.
+* Tạo cấu trúc package chuẩn.
+* Tạo ApiResponse dùng chung.
+* Tạo GlobalExceptionHandler.
+* Tạo ErrorCode hoặc AppException.
+* Cấu hình CORS.
+* Cấu hình Swagger.
+* Tạo các enum dùng chung.
+* Tạo các util cơ bản nếu cần.
 
-* Làm module phim.
-* Làm module thể loại.
-* Làm API xem phim, tìm kiếm, lọc phim.
-* Làm API admin quản lý phim.
+Mục tiêu:
 
-Giai đoạn 3:
+* Backend chạy được.
+* Kết nối database thành công.
+* Có format response và xử lý lỗi thống nhất.
 
-* Làm module rạp.
-* Làm module phòng chiếu.
-* Làm module ghế.
-* Làm chức năng tạo ghế tự động.
+Giai đoạn 2: Authentication và phân quyền
 
-Giai đoạn 4:
+* Tạo User entity.
+* Tạo Role entity.
+* Tạo UserRepository.
+* Tạo RoleRepository.
+* Tạo Register API.
+* Tạo Login API.
+* Tạo JWT service.
+* Tạo JWT filter.
+* Cấu hình Spring Security.
+* Mã hóa mật khẩu bằng BCrypt.
+* Lấy thông tin user hiện tại.
+* Đổi mật khẩu.
+* Đăng xuất ở frontend bằng cách xóa token.
+* Kiểm tra tài khoản bị khóa khi đăng nhập.
+* Phân quyền USER / ADMIN.
 
-* Làm module suất chiếu.
-* Kiểm tra trùng thời gian chiếu trong cùng một phòng.
-* API lấy ghế theo suất chiếu.
+API cần có:
 
-Giai đoạn 5:
+* POST /api/auth/register
+* POST /api/auth/login
+* GET /api/auth/me
+* PUT /api/auth/change-password
 
-* Làm module đặt vé.
-* Kiểm tra ghế đã đặt.
-* Tạo booking.
-* Tạo booking seat.
-* Tạo payment giả lập.
-* Tạo ticket.
+Mục tiêu:
+
+* User đăng ký được.
+* User đăng nhập nhận JWT được.
+* API admin chỉ ADMIN truy cập được.
+* API user yêu cầu đăng nhập mới truy cập được.
+
+Giai đoạn 3: Quản lý người dùng
+
+* User xem thông tin cá nhân.
+* User cập nhật thông tin cá nhân.
+* Admin xem danh sách người dùng.
+* Admin xem chi tiết người dùng.
+* Admin khóa tài khoản.
+* Admin mở khóa tài khoản.
+* Admin xóa hoặc vô hiệu hóa người dùng.
+* Tìm kiếm người dùng.
+* Lọc người dùng theo trạng thái hoặc vai trò.
+
+API cần có:
+
+* GET /api/users/me
+* PUT /api/users/me
+* GET /api/admin/users
+* GET /api/admin/users/{id}
+* PUT /api/admin/users/{id}/lock
+* PUT /api/admin/users/{id}/unlock
+* DELETE /api/admin/users/{id}
+
+Mục tiêu:
+
+* Hoàn thiện chức năng người dùng cơ bản.
+* Chuẩn bị dữ liệu cho dashboard admin.
+
+Giai đoạn 4: Quản lý phim và thể loại phim
+
+* Tạo Movie entity.
+* Tạo Genre entity.
+* Tạo quan hệ nhiều-nhiều giữa Movie và Genre.
+* User xem danh sách phim.
+* User xem phim đang chiếu.
+* User xem phim sắp chiếu.
+* User xem chi tiết phim.
+* User tìm kiếm phim theo tên.
+* User lọc phim theo thể loại, trạng thái, ngôn ngữ, quốc gia.
+* User xem trailer phim.
+* Admin thêm phim.
+* Admin sửa phim.
+* Admin xóa hoặc ẩn phim.
+* Admin upload poster phim.
+* Admin gán thể loại cho phim.
+* Admin cập nhật trạng thái phim.
+* Admin thêm, sửa, xóa hoặc ẩn thể loại.
+
+API cần có:
+
+* GET /api/movies
+* GET /api/movies/{id}
+* GET /api/movies/now-showing
+* GET /api/movies/coming-soon
+* GET /api/movies/search
+* POST /api/admin/movies
+* PUT /api/admin/movies/{id}
+* DELETE /api/admin/movies/{id}
+* GET /api/genres
+* GET /api/genres/{id}
+* POST /api/admin/genres
+* PUT /api/admin/genres/{id}
+* DELETE /api/admin/genres/{id}
+
+Mục tiêu:
+
+* Hoàn thiện module phim.
+* Hoàn thiện module thể loại.
+* Trang chủ và trang danh sách phim có dữ liệu để hiển thị.
+
+Giai đoạn 5: Quản lý rạp, phòng chiếu và ghế
+
+* Tạo Cinema entity.
+* Tạo Room entity.
+* Tạo Seat entity.
+* User xem danh sách rạp.
+* User xem rạp theo thành phố.
+* User xem chi tiết rạp.
+* Admin thêm, sửa, xóa hoặc ẩn rạp.
+* Admin thêm, sửa, xóa hoặc ẩn phòng chiếu.
+* Admin xem phòng theo rạp.
+* Admin tạo ghế tự động theo số hàng và số cột.
+* Mã ghế dạng A1, A2, A3, B1, B2...
+* Admin sửa loại ghế.
+* Admin khóa ghế.
+* Admin mở khóa ghế.
+* Admin đánh dấu ghế bảo trì.
+
+API cần có:
+
+* GET /api/cinemas
+* GET /api/cinemas/{id}
+* GET /api/cinemas/by-city
+* POST /api/admin/cinemas
+* PUT /api/admin/cinemas/{id}
+* DELETE /api/admin/cinemas/{id}
+* GET /api/admin/rooms
+* GET /api/admin/rooms/{id}
+* GET /api/admin/cinemas/{cinemaId}/rooms
+* POST /api/admin/rooms
+* PUT /api/admin/rooms/{id}
+* DELETE /api/admin/rooms/{id}
+* GET /api/admin/rooms/{roomId}/seats
+* POST /api/admin/rooms/{roomId}/generate-seats
+* PUT /api/admin/seats/{id}
+* PUT /api/admin/seats/{id}/maintenance
+* PUT /api/admin/seats/{id}/active
+
+Mục tiêu:
+
+* Có rạp, phòng, ghế để tạo suất chiếu.
+* Có sơ đồ ghế để phục vụ đặt vé.
+
+Giai đoạn 6: Quản lý suất chiếu
+
+* Tạo Showtime entity.
+* User xem lịch chiếu theo phim.
+* User xem lịch chiếu theo rạp.
+* User xem lịch chiếu theo ngày.
+* User chọn suất chiếu để đặt vé.
+* User xem sơ đồ ghế theo suất chiếu.
+* Admin thêm suất chiếu.
+* Admin sửa suất chiếu.
+* Admin xóa hoặc hủy suất chiếu.
+* Admin lọc suất chiếu theo phim, rạp, ngày, phòng.
+* Backend kiểm tra không cho tạo suất chiếu trùng giờ trong cùng một phòng.
+* Backend kiểm tra giờ kết thúc phải sau giờ bắt đầu.
+* Backend kiểm tra phim và phòng chiếu phải hợp lệ.
+
+API cần có:
+
+* GET /api/showtimes
+* GET /api/showtimes/{id}
+* GET /api/movies/{movieId}/showtimes
+* GET /api/cinemas/{cinemaId}/showtimes
+* GET /api/showtimes/{showtimeId}/seats
+* POST /api/admin/showtimes
+* PUT /api/admin/showtimes/{id}
+* DELETE /api/admin/showtimes/{id}
+
+Mục tiêu:
+
+* Có lịch chiếu hoàn chỉnh.
+* User có thể đi đến bước chọn ghế.
+
+Giai đoạn 7: Đồ ăn, nước uống và mã giảm giá
+
+* Tạo Food entity.
+* Tạo Coupon entity.
+* Tạo CouponUsage entity nếu cần.
+* User xem danh sách đồ ăn, nước uống, combo.
+* User chọn đồ ăn khi đặt vé.
+* Admin thêm đồ ăn.
+* Admin sửa đồ ăn.
+* Admin xóa hoặc ẩn đồ ăn.
+* Admin upload ảnh đồ ăn.
+* User nhập mã giảm giá.
+* Backend kiểm tra mã có tồn tại không.
+* Backend kiểm tra mã còn hạn không.
+* Backend kiểm tra mã còn lượt sử dụng không.
+* Backend kiểm tra đơn hàng có đủ điều kiện không.
+* Admin thêm mã giảm giá.
+* Admin sửa mã giảm giá.
+* Admin xóa mã giảm giá.
+* Admin bật / tắt mã giảm giá.
+
+API cần có:
+
+* GET /api/foods
+* GET /api/foods/{id}
+* POST /api/admin/foods
+* PUT /api/admin/foods/{id}
+* DELETE /api/admin/foods/{id}
+* POST /api/coupons/apply
+* GET /api/admin/coupons
+* POST /api/admin/coupons
+* PUT /api/admin/coupons/{id}
+* DELETE /api/admin/coupons/{id}
+
+Mục tiêu:
+
+* Hoàn thiện các dữ liệu phụ trước khi làm đặt vé.
+* Booking có thể tính tiền đồ ăn và mã giảm giá.
+
+Giai đoạn 8: Đặt vé, thanh toán và vé
+
+* Tạo Booking entity.
+* Tạo BookingSeat entity.
+* Tạo Payment entity.
+* Tạo Ticket entity.
+* User chọn ghế.
+* User bỏ chọn ghế.
+* Backend kiểm tra ghế đã đặt chưa.
+* Backend kiểm tra ghế có thuộc đúng phòng của suất chiếu không.
+* Backend kiểm tra ghế có đang bảo trì không.
+* Backend tính tiền ghế theo loại ghế.
+* Backend tính tiền đồ ăn nước uống.
+* Backend áp dụng mã giảm giá.
+* Backend tính tổng tiền cuối cùng.
+* Backend tạo booking.
+* Backend tạo booking seat.
+* Backend tạo payment giả lập.
+* Backend tạo ticket.
+* Ticket có mã vé.
+* Ticket có QR Code giả lập.
 * Dùng @Transactional để tránh lỗi đặt trùng ghế.
+* User xem vé của tôi.
+* User xem chi tiết vé.
+* User hủy vé nếu đủ điều kiện.
+* Khi hủy vé, booking chuyển sang CANCELLED.
+* Khi hủy vé, ticket chuyển sang CANCELLED.
+* Khi thanh toán thành công, booking chuyển sang CONFIRMED.
+* Admin xem danh sách booking.
+* Admin xem chi tiết booking.
+* Admin hủy booking.
+* Admin hoàn tiền giả lập.
+* Admin xem danh sách thanh toán.
+* Admin lọc thanh toán theo trạng thái, phương thức.
+* Admin xem danh sách vé.
+* Admin xem chi tiết vé.
+* Admin đánh dấu vé đã sử dụng nếu cần.
 
-Giai đoạn 6:
+API cần có:
 
-* Setup frontend React Vite.
-* Làm giao diện người dùng.
-* Kết nối API đăng nhập, đăng ký.
-* Kết nối API xem phim.
+* POST /api/bookings
+* GET /api/bookings/my
+* GET /api/bookings/{id}
+* GET /api/bookings/{id}/ticket
+* PUT /api/bookings/{id}/cancel
+* GET /api/admin/bookings
+* GET /api/admin/bookings/{id}
+* PUT /api/admin/bookings/{id}/confirm
+* PUT /api/admin/bookings/{id}/cancel
+* PUT /api/admin/bookings/{id}/refund
+* POST /api/payments/create
+* POST /api/payments/fake-success
+* POST /api/payments/fake-failed
+* GET /api/payments/{id}
+* GET /api/admin/payments
+* GET /api/admin/tickets
+* GET /api/admin/tickets/{id}
+* PUT /api/admin/tickets/{id}/used
+
+Mục tiêu:
+
+* Hoàn thiện luồng nghiệp vụ quan trọng nhất của project.
+* User có thể đặt vé từ đầu đến cuối.
+* Admin có thể quản lý booking, payment và ticket.
+
+Giai đoạn 9: Đánh giá phim, phim yêu thích và thông báo
+
+* Tạo Review entity.
+* Tạo Favorite entity.
+* Tạo Notification entity.
+* User đánh giá phim từ 1 đến 5 sao.
+* User viết nội dung đánh giá.
+* User sửa đánh giá của mình.
+* User xóa đánh giá của mình.
+* User xem đánh giá của người khác.
+* Backend kiểm tra chỉ người đã đặt vé phim đó mới được đánh giá.
+* Backend kiểm tra mỗi user chỉ được đánh giá một lần cho một phim.
+* Admin xem danh sách đánh giá.
+* Admin ẩn đánh giá.
+* Admin xóa đánh giá.
+* User thêm phim vào yêu thích.
+* User xóa phim khỏi yêu thích.
+* User xem danh sách phim yêu thích.
+* Tạo thông báo khi đặt vé thành công.
+* Tạo thông báo khi hủy vé.
+* User xem thông báo cá nhân.
+* User đánh dấu thông báo đã đọc.
+* User xóa thông báo.
+
+API cần có:
+
+* GET /api/movies/{movieId}/reviews
+* POST /api/movies/{movieId}/reviews
+* PUT /api/reviews/{id}
+* DELETE /api/reviews/{id}
+* GET /api/admin/reviews
+* GET /api/favorites
+* POST /api/favorites/{movieId}
+* DELETE /api/favorites/{movieId}
+* GET /api/notifications/my
+* PUT /api/notifications/{id}/read
+* DELETE /api/notifications/{id}
+
+Mục tiêu:
+
+* Hoàn thiện các chức năng tương tác của user.
+* Tăng độ hoàn chỉnh cho project.
+
+Giai đoạn 10: Dashboard Admin
+
+* Tổng số người dùng.
+* Tổng số phim.
+* Tổng số rạp.
+* Tổng số phòng chiếu.
+* Tổng số suất chiếu.
+* Tổng số booking.
+* Tổng số vé đã bán.
+* Tổng doanh thu.
+* Doanh thu hôm nay.
+* Doanh thu tháng này.
+* Số booking bị hủy.
+* Top phim bán chạy.
+* Doanh thu theo ngày.
+* Doanh thu theo tháng.
+* Tỷ lệ booking theo trạng thái.
+* Tỷ lệ thanh toán theo phương thức.
+
+API cần có:
+
+* GET /api/admin/dashboard/summary
+* GET /api/admin/dashboard/revenue-by-day
+* GET /api/admin/dashboard/revenue-by-month
+* GET /api/admin/dashboard/top-movies
+* GET /api/admin/dashboard/booking-status
+* GET /api/admin/dashboard/payment-methods
+
+Mục tiêu:
+
+* Admin có dashboard thống kê.
+* Dự án nhìn chuyên nghiệp hơn khi đưa vào CV.
+
+Giai đoạn 11: Frontend người dùng
+
+* Setup React Vite.
+* Cấu hình Axios.
+* Cấu hình React Router.
+* Tạo Auth Context.
+* Tạo Protected Route.
+* Tạo User Layout.
+* Làm trang chủ.
+* Làm trang danh sách phim.
+* Làm trang chi tiết phim.
+* Làm trang danh sách rạp.
+* Làm trang chọn suất chiếu.
 * Làm trang chọn ghế.
 * Làm trang thanh toán.
+* Làm trang đặt vé thành công.
 * Làm trang vé của tôi.
+* Làm trang chi tiết vé.
+* Làm trang đăng nhập.
+* Làm trang đăng ký.
+* Làm trang hồ sơ cá nhân.
+* Làm trang phim yêu thích.
+* Làm trang thông báo.
+* Kết nối API backend.
+* Hiển thị toast thông báo.
+* Hiển thị loading khi gọi API.
+* Xử lý lỗi tiếng Việt.
 
-Giai đoạn 7:
+Mục tiêu:
 
-* Làm giao diện admin.
-* Làm dashboard.
-* Làm các trang quản lý.
+* User có thể sử dụng website từ xem phim đến đặt vé hoàn chỉnh.
+
+Giai đoạn 12: Frontend Admin
+
+* Tạo Admin Layout.
+* Tạo Admin Route.
+* Tạo Sidebar quản trị.
+* Tạo Header admin.
+* Làm Dashboard Admin.
+* Làm trang quản lý người dùng.
+* Làm trang quản lý phim.
+* Làm trang quản lý thể loại.
+* Làm trang quản lý rạp.
+* Làm trang quản lý phòng chiếu.
+* Làm trang quản lý ghế.
+* Làm trang quản lý suất chiếu.
+* Làm trang quản lý booking.
+* Làm trang quản lý thanh toán.
+* Làm trang quản lý đồ ăn, nước uống.
+* Làm trang quản lý mã giảm giá.
+* Làm trang quản lý đánh giá.
 * Kết nối API admin.
+* Thêm modal xác nhận xóa, hủy, khóa tài khoản.
+* Thêm form validate tiếng Việt.
+* Thêm biểu đồ dashboard bằng Recharts.
 
-Giai đoạn 8:
+Mục tiêu:
 
-* Hoàn thiện validate.
+* Admin có thể quản lý toàn bộ hệ thống từ giao diện.
+
+Giai đoạn 13: Hoàn thiện, dữ liệu mẫu và deploy
+
+* Hoàn thiện validate backend.
+* Hoàn thiện validate frontend.
 * Hoàn thiện xử lý lỗi.
 * Thêm dữ liệu mẫu.
+* Tạo tài khoản admin mẫu.
+* Tạo tài khoản user mẫu.
+* Thêm ít nhất 8 phim.
+* Thêm ít nhất 5 thể loại.
+* Thêm ít nhất 3 rạp.
+* Mỗi rạp có ít nhất 2 phòng.
+* Mỗi phòng có sơ đồ ghế 8 hàng x 10 cột.
+* Thêm ít nhất 15 suất chiếu.
+* Thêm một số đồ ăn, combo.
+* Thêm một số mã giảm giá.
 * Viết README.
-* Chuẩn bị deploy.
+* Thêm ảnh demo.
+* Viết hướng dẫn chạy backend.
+* Viết hướng dẫn chạy frontend.
+* Viết danh sách API chính.
+* Chuẩn bị deploy backend.
+* Chuẩn bị deploy frontend.
+* Chuẩn bị deploy database.
+
+Mục tiêu:
+
+* Dự án đủ hoàn chỉnh để đưa lên GitHub và ghi vào CV.
+
 
 ==================================================
 7. YÊU CẦU KHI TRẢ LỜI VÀ CODE

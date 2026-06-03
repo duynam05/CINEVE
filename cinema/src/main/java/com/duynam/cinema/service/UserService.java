@@ -4,6 +4,7 @@ import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.HashSet;
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -18,6 +19,7 @@ import com.duynam.cinema.dto.request.ForgotPasswordRequest;
 import com.duynam.cinema.dto.request.RegisterRequest;
 import com.duynam.cinema.dto.request.ResendEmailVerificationRequest;
 import com.duynam.cinema.dto.request.ResetPasswordRequest;
+import com.duynam.cinema.dto.request.UserUpdateRequest;
 import com.duynam.cinema.dto.request.VerifyEmailRequest;
 import com.duynam.cinema.dto.response.EmailVerificationResponse;
 import com.duynam.cinema.dto.response.ForgotPasswordResponse;
@@ -159,6 +161,55 @@ public class UserService {
         return userMapper.toUserResponse(getCurrentUser());
     }
 
+    public UserResponse updateMyInfo(UserUpdateRequest request) {
+        User user = getCurrentUser();
+        user.setFullName(request.getFullName().trim());
+        user.setPhone(normalizeNullable(request.getPhone()));
+
+        return userMapper.toUserResponse(userRepository.save(user));
+    }
+
+    public List<UserResponse> getAdminUsers(String keyword, UserStatus status, String role) {
+        return userRepository.searchUsers(
+                        normalizeNullable(keyword),
+                        status,
+                        normalizeNullable(role))
+                .stream()
+                .map(userMapper::toUserResponse)
+                .toList();
+    }
+
+    public UserResponse getAdminUser(String id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+
+        return userMapper.toUserResponse(user);
+    }
+
+    public UserResponse lockUser(String id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+
+        user.setStatus(UserStatus.DISABLED);
+        return userMapper.toUserResponse(userRepository.save(user));
+    }
+
+    public UserResponse unlockUser(String id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+
+        user.setStatus(UserStatus.ACTIVE);
+        return userMapper.toUserResponse(userRepository.save(user));
+    }
+
+    public void disableUser(String id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+
+        user.setStatus(UserStatus.DISABLED);
+        userRepository.save(user);
+    }
+
     public void changePassword(ChangePasswordRequest request) {
         User user = getCurrentUser();
 
@@ -191,5 +242,13 @@ public class UserService {
 
     private String generateOtp() {
         return String.format("%06d", SECURE_RANDOM.nextInt(1_000_000));
+    }
+
+    private String normalizeNullable(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        return value.trim();
     }
 }
