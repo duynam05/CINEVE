@@ -1323,3 +1323,228 @@ Kết quả:
 - Spring Boot context start được với H2.
 - Query tìm/lọc user trong `UserRepository` load được.
 - JPA repository scan được 10 repository.
+## Giai đoạn 6 theo AGENT.md mới đã hoàn thành
+
+Đã triển khai backend module quản lý suất chiếu:
+
+- Tạo enum trạng thái suất chiếu: `OPEN`, `CLOSED`, `CANCELLED`, `FINISHED`.
+- Tạo enum trạng thái ghế theo suất chiếu: `AVAILABLE`, `MAINTENANCE`, `DISABLED`, `BOOKED`.
+- Tạo entity `Showtime`.
+- Tạo repository cho suất chiếu.
+- Tạo DTO request/response.
+- Tạo mapper.
+- Tạo service public xem/lọc lịch chiếu.
+- Tạo service admin quản lý suất chiếu.
+- Tạo API public xem lịch chiếu theo phim, rạp, ngày.
+- Tạo API public xem sơ đồ ghế theo suất chiếu.
+- Tạo API admin thêm/sửa/hủy suất chiếu.
+- Tạo API admin lọc suất chiếu theo phim, rạp, ngày, phòng.
+- Cấu hình public endpoint `/api/showtimes/**`.
+
+## Logic suất chiếu hiện tại
+
+Suất chiếu:
+
+- Entity `Showtime` có các field chính: `id`, `movie`, `room`, `startTime`, `endTime`, `normalSeatPrice`, `vipSeatPrice`, `coupleSeatPrice`, `status`, `createdAt`, `updatedAt`.
+- Public API không trả suất chiếu có `status = CANCELLED`.
+- Admin API xem được tất cả suất chiếu.
+- Khi xóa suất chiếu, backend không xóa cứng mà set `status = CANCELLED`.
+- Khi tạo/cập nhật suất chiếu, backend kiểm tra:
+  - Phim không bị ẩn.
+  - Phòng chiếu đang `ACTIVE`.
+  - Rạp của phòng chiếu đang `ACTIVE`.
+  - `endTime` phải sau `startTime`.
+  - Không có suất chiếu khác trùng thời gian trong cùng phòng.
+- Điều kiện trùng thời gian: suất chiếu cũ có `startTime < endTime mới` và `endTime > startTime mới`.
+- Suất chiếu đã `CANCELLED` không được tính khi kiểm tra trùng lịch.
+
+Sơ đồ ghế theo suất chiếu:
+
+- API hiện trả toàn bộ ghế thuộc phòng của suất chiếu.
+- Ghế `ACTIVE` được trả trạng thái `AVAILABLE`.
+- Ghế `MAINTENANCE` được trả trạng thái `MAINTENANCE`.
+- Ghế `DISABLED` được trả trạng thái `DISABLED`.
+- Trạng thái `BOOKED` đã chuẩn bị trong enum nhưng sẽ dùng thật sau giai đoạn đặt vé/booking.
+
+## API suất chiếu đã có
+
+Public API:
+
+```text
+GET /api/showtimes
+GET /api/showtimes?movieId=&cinemaId=&roomId=&date=
+GET /api/showtimes/{id}
+GET /api/showtimes/{id}/seats
+GET /api/movies/{movieId}/showtimes
+GET /api/movies/{movieId}/showtimes?date=
+GET /api/cinemas/{cinemaId}/showtimes
+GET /api/cinemas/{cinemaId}/showtimes?date=
+```
+
+Admin API:
+
+```text
+GET    /api/admin/showtimes
+GET    /api/admin/showtimes?movieId=&cinemaId=&roomId=&date=
+GET    /api/admin/showtimes/{id}
+POST   /api/admin/showtimes
+PUT    /api/admin/showtimes/{id}
+DELETE /api/admin/showtimes/{id}
+```
+
+Admin API cần header:
+
+```text
+Authorization: Bearer <admin_token>
+```
+
+## Body test API suất chiếu
+
+Tạo suất chiếu:
+
+```http
+POST http://localhost:8080/api/admin/showtimes
+Authorization: Bearer <admin_token>
+```
+
+```json
+{
+  "movieId": "MOVIE_ID",
+  "roomId": "ROOM_ID",
+  "startTime": "2026-06-10T19:00:00",
+  "endTime": "2026-06-10T21:00:00",
+  "normalSeatPrice": 70000,
+  "vipSeatPrice": 90000,
+  "coupleSeatPrice": 160000,
+  "status": "OPEN"
+}
+```
+
+Lọc suất chiếu public theo ngày:
+
+```http
+GET http://localhost:8080/api/showtimes?date=2026-06-10
+```
+
+Xem lịch chiếu theo phim:
+
+```http
+GET http://localhost:8080/api/movies/{movieId}/showtimes?date=2026-06-10
+```
+
+Xem lịch chiếu theo rạp:
+
+```http
+GET http://localhost:8080/api/cinemas/{cinemaId}/showtimes?date=2026-06-10
+```
+
+Xem ghế theo suất chiếu:
+
+```http
+GET http://localhost:8080/api/showtimes/{showtimeId}/seats
+```
+
+Cập nhật suất chiếu:
+
+```http
+PUT http://localhost:8080/api/admin/showtimes/{showtimeId}
+Authorization: Bearer <admin_token>
+```
+
+```json
+{
+  "movieId": "MOVIE_ID",
+  "roomId": "ROOM_ID",
+  "startTime": "2026-06-10T20:00:00",
+  "endTime": "2026-06-10T22:00:00",
+  "normalSeatPrice": 75000,
+  "vipSeatPrice": 95000,
+  "coupleSeatPrice": 170000,
+  "status": "OPEN"
+}
+```
+
+Hủy suất chiếu:
+
+```http
+DELETE http://localhost:8080/api/admin/showtimes/{showtimeId}
+Authorization: Bearer <admin_token>
+```
+
+## File đã tạo/sửa ở giai đoạn 6 theo AGENT.md mới
+
+File thêm:
+
+- `src/main/java/com/duynam/cinema/constant/ShowtimeStatus.java`
+- `src/main/java/com/duynam/cinema/constant/ShowtimeSeatStatus.java`
+- `src/main/java/com/duynam/cinema/entity/Showtime.java`
+- `src/main/java/com/duynam/cinema/repository/ShowtimeRepository.java`
+- `src/main/java/com/duynam/cinema/dto/request/ShowtimeRequest.java`
+- `src/main/java/com/duynam/cinema/dto/response/ShowtimeResponse.java`
+- `src/main/java/com/duynam/cinema/dto/response/ShowtimeSeatResponse.java`
+- `src/main/java/com/duynam/cinema/dto/response/ShowtimeSeatMapResponse.java`
+- `src/main/java/com/duynam/cinema/mapper/ShowtimeMapper.java`
+- `src/main/java/com/duynam/cinema/service/ShowtimeService.java`
+- `src/main/java/com/duynam/cinema/controller/ShowtimeController.java`
+- `src/main/java/com/duynam/cinema/controller/AdminShowtimeController.java`
+
+File sửa:
+
+- `src/main/java/com/duynam/cinema/controller/MovieController.java`
+- `src/main/java/com/duynam/cinema/controller/CinemaController.java`
+- `src/main/java/com/duynam/cinema/configuration/SecurityConfig.java`
+- `src/main/java/com/duynam/cinema/exception/ErrorCode.java`
+- `NGUCANH.md`
+
+## Cách test đã dùng sau khi hoàn thiện giai đoạn 6
+
+Command đã chạy thành công:
+
+```bash
+mvn.cmd test -q
+```
+
+Kết quả:
+
+- Test pass.
+- Spring Boot context start được với H2.
+- JPA repository scan được 11 repository, bao gồm `ShowtimeRepository`.
+- Query lọc suất chiếu và query kiểm tra trùng lịch load được.
+
+## Tiến độ hiện tại theo AGENT.md mới
+
+Cập nhật đến hiện tại:
+
+- Đã hoàn thành Giai đoạn 1: Setup nền tảng backend.
+- Đã hoàn thành Giai đoạn 2: Authentication và phân quyền.
+- Đã hoàn thành Giai đoạn 3: Quản lý người dùng.
+- Đã hoàn thành Giai đoạn 4: Quản lý phim và thể loại phim.
+- Đã hoàn thành Giai đoạn 5: Quản lý rạp, phòng chiếu và ghế.
+- Đã hoàn thành Giai đoạn 6: Quản lý suất chiếu.
+- Giai đoạn tiếp theo cần làm: Giai đoạn 7 - Đồ ăn, nước uống và mã giảm giá.
+
+Các API đã có theo nhóm chính:
+
+- Auth: đăng ký, đăng nhập, refresh token, logout, xác thực email, quên/reset mật khẩu, lấy thông tin đăng nhập, đổi mật khẩu.
+- User: xem/cập nhật hồ sơ cá nhân, admin tìm kiếm/lọc/xem/khóa/mở khóa/vô hiệu hóa người dùng.
+- Movie/Genre: public xem/tìm/lọc phim và thể loại, admin quản lý phim/thể loại, trailer, upload poster.
+- Cinema/Room/Seat: public xem/lọc rạp, admin quản lý rạp/phòng/ghế, tạo ghế tự động.
+- Showtime: public xem/lọc lịch chiếu, xem ghế theo suất chiếu, admin quản lý suất chiếu và kiểm tra trùng lịch.
+
+Các phần chưa làm:
+
+- Giai đoạn 7: Đồ ăn, nước uống và mã giảm giá.
+- Giai đoạn 8: Đặt vé, thanh toán và vé.
+- Giai đoạn 9: Đánh giá phim, phim yêu thích và thông báo.
+- Giai đoạn 10: Dashboard Admin.
+- Giai đoạn 11: Frontend người dùng.
+- Giai đoạn 12: Frontend Admin.
+- Giai đoạn 13: Hoàn thiện, dữ liệu mẫu và deploy.
+
+Ghi chú kỹ thuật hiện tại:
+
+- Backend nằm tại `D:\cinema\cinema`.
+- Chạy test bằng `mvn.cmd test -q`.
+- Lần test gần nhất đã pass sau khi hoàn thiện quản lý suất chiếu.
+- `GET /api/auth/me` vẫn giữ để kiểm tra token thuộc module auth.
+- `GET /api/users/me` và `PUT /api/users/me` là API hồ sơ cá nhân thuộc module user.

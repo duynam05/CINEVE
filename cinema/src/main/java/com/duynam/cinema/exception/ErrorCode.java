@@ -75,7 +75,18 @@ public enum ErrorCode {
     SEAT_STATUS_REQUIRED(3024, "Trạng thái ghế không được để trống", HttpStatus.BAD_REQUEST),
     SEAT_EXISTED(3025, "Ghế đã tồn tại trong phòng này", HttpStatus.BAD_REQUEST),
     SEAT_NOT_FOUND(3026, "Ghế không tồn tại", HttpStatus.NOT_FOUND),
-    SEAT_POSITION_INVALID(3027, "Vị trí ghế vượt quá sơ đồ phòng", HttpStatus.BAD_REQUEST);
+    SEAT_POSITION_INVALID(3027, "Vị trí ghế vượt quá sơ đồ phòng", HttpStatus.BAD_REQUEST),
+    MOVIE_ID_REQUIRED(4001, "Mã phim không được để trống", HttpStatus.BAD_REQUEST),
+    SHOWTIME_START_TIME_REQUIRED(4002, "Thời gian bắt đầu không được để trống", HttpStatus.BAD_REQUEST),
+    SHOWTIME_END_TIME_REQUIRED(4003, "Thời gian kết thúc không được để trống", HttpStatus.BAD_REQUEST),
+    SHOWTIME_TIME_INVALID(4004, "Thời gian kết thúc phải sau thời gian bắt đầu", HttpStatus.BAD_REQUEST),
+    SHOWTIME_NORMAL_PRICE_REQUIRED(4005, "Giá ghế thường không được để trống", HttpStatus.BAD_REQUEST),
+    SHOWTIME_VIP_PRICE_REQUIRED(4006, "Giá ghế VIP không được để trống", HttpStatus.BAD_REQUEST),
+    SHOWTIME_COUPLE_PRICE_REQUIRED(4007, "Giá ghế đôi không được để trống", HttpStatus.BAD_REQUEST),
+    SHOWTIME_PRICE_INVALID(4008, "Giá vé phải lớn hơn 0", HttpStatus.BAD_REQUEST),
+    SHOWTIME_STATUS_REQUIRED(4009, "Trạng thái suất chiếu không được để trống", HttpStatus.BAD_REQUEST),
+    SHOWTIME_NOT_FOUND(4010, "Suất chiếu không tồn tại", HttpStatus.NOT_FOUND),
+    SHOWTIME_OVERLAPPED(4011, "Phòng chiếu đã có suất chiếu trùng thời gian", HttpStatus.BAD_REQUEST);
 
     private final int code;
     private final String message;

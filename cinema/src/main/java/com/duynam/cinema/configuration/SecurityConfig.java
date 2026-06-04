@@ -48,6 +48,7 @@ public class SecurityConfig {
             "/api/genres/**",
             "/api/movies/**",
             "/api/cinemas/**",
+            "/api/showtimes/**",
             "/uploads/**",
             "/v3/api-docs/**",
             "/swagger-ui/**",
