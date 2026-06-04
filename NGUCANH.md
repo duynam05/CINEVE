@@ -1511,6 +1511,242 @@ Kết quả:
 - JPA repository scan được 11 repository, bao gồm `ShowtimeRepository`.
 - Query lọc suất chiếu và query kiểm tra trùng lịch load được.
 
+## Giai đoạn 7 theo AGENT.md mới đã hoàn thành
+
+Đã triển khai backend module đồ ăn, nước uống và mã giảm giá:
+
+- Tạo enum loại sản phẩm: `POPCORN`, `DRINK`, `COMBO`, `SNACK`.
+- Tạo enum loại mã giảm giá: `PERCENT`, `FIXED_AMOUNT`.
+- Tạo entity `Food`, `Coupon`.
+- Tạo repository cho đồ ăn, nước uống và mã giảm giá.
+- Tạo DTO request/response.
+- Tạo mapper.
+- Tạo service public xem đồ ăn, nước uống.
+- Tạo service admin quản lý đồ ăn, nước uống.
+- Tạo service admin quản lý mã giảm giá.
+- Tạo API public áp dụng mã giảm giá để tính thử số tiền giảm.
+- Tạo API admin upload ảnh đồ ăn, nước uống local.
+- Cấu hình public endpoint `/api/foods/**` và `/api/coupons/apply`.
+
+## Logic đồ ăn, nước uống và mã giảm giá hiện tại
+
+Đồ ăn, nước uống:
+
+- Entity `Food` có các field chính: `id`, `name`, `slug`, `description`, `type`, `price`, `imageUrl`, `active`, `createdAt`, `updatedAt`.
+- Public API chỉ trả sản phẩm có `active = true`.
+- Admin API xem được cả sản phẩm đang active và đã ẩn.
+- Khi xóa sản phẩm, backend không xóa cứng mà set `active = false`.
+- Muốn hiện lại sản phẩm đã ẩn thì gọi `PUT /api/admin/foods/{id}` với `active = true`.
+- Upload ảnh sản phẩm lưu local vào thư mục `uploads/foods`, public qua `/uploads/foods/...`.
+
+Mã giảm giá:
+
+- Entity `Coupon` có các field chính: `id`, `code`, `name`, `description`, `type`, `discountValue`, `minOrderAmount`, `maxDiscountAmount`, `startTime`, `endTime`, `usageLimit`, `usedCount`, `active`, `createdAt`, `updatedAt`.
+- `code` được chuẩn hóa thành chữ in hoa.
+- Khi tạo/cập nhật mã giảm giá, backend kiểm tra:
+  - `endTime` phải sau `startTime`.
+  - Nếu type là `PERCENT`, `discountValue` không được vượt quá 100.
+  - `usageLimit` không được nhỏ hơn `usedCount` khi cập nhật.
+- Khi áp dụng mã giảm giá, backend kiểm tra:
+  - Mã tồn tại.
+  - Mã đang active.
+  - Mã còn trong thời gian áp dụng.
+  - Mã còn lượt dùng.
+  - Tổng tiền đơn hàng đủ điều kiện tối thiểu.
+- API `/api/coupons/apply` chỉ tính thử `discountAmount` và `finalAmount`, chưa tăng `usedCount`.
+- `usedCount` sẽ nên tăng thật ở giai đoạn 8 khi tạo booking/thanh toán thành công.
+
+## API đồ ăn, nước uống và mã giảm giá đã có
+
+Public API:
+
+```text
+GET  /api/foods
+GET  /api/foods?type=POPCORN
+GET  /api/foods/{id}
+POST /api/coupons/apply
+```
+
+Admin API:
+
+```text
+GET    /api/admin/foods
+GET    /api/admin/foods/{id}
+POST   /api/admin/foods
+PUT    /api/admin/foods/{id}
+POST   /api/admin/foods/{id}/image
+DELETE /api/admin/foods/{id}
+
+GET    /api/admin/coupons
+GET    /api/admin/coupons/{id}
+POST   /api/admin/coupons
+PUT    /api/admin/coupons/{id}
+DELETE /api/admin/coupons/{id}
+```
+
+Admin API cần header:
+
+```text
+Authorization: Bearer <admin_token>
+```
+
+## Body test API giai đoạn 7
+
+Tạo đồ ăn, nước uống:
+
+```http
+POST http://localhost:8080/api/admin/foods
+Authorization: Bearer <admin_token>
+```
+
+```json
+{
+  "name": "Combo bắp nước 1",
+  "description": "1 bắp rang bơ lớn và 2 nước ngọt",
+  "type": "COMBO",
+  "price": 89000,
+  "imageUrl": null,
+  "active": true
+}
+```
+
+Upload ảnh đồ ăn, nước uống:
+
+- Method: `POST`
+- URL: `http://localhost:8080/api/admin/foods/{foodId}/image`
+- Header: `Authorization: Bearer <admin_token>`
+- Body: `form-data`
+- Key: `file`
+- Type: `File`
+- Chọn ảnh `.jpg`, `.png`, `.webp`
+
+Xem danh sách đồ ăn, nước uống public:
+
+```http
+GET http://localhost:8080/api/foods
+```
+
+Lọc theo loại:
+
+```http
+GET http://localhost:8080/api/foods?type=COMBO
+```
+
+Ẩn đồ ăn, nước uống:
+
+```http
+DELETE http://localhost:8080/api/admin/foods/{foodId}
+Authorization: Bearer <admin_token>
+```
+
+Tạo mã giảm theo phần trăm:
+
+```http
+POST http://localhost:8080/api/admin/coupons
+Authorization: Bearer <admin_token>
+```
+
+```json
+{
+  "code": "CINEVE10",
+  "name": "Giảm 10%",
+  "description": "Giảm 10% tối đa 50000 cho đơn từ 100000",
+  "type": "PERCENT",
+  "discountValue": 10,
+  "minOrderAmount": 100000,
+  "maxDiscountAmount": 50000,
+  "startTime": "2026-06-01T00:00:00",
+  "endTime": "2026-12-31T23:59:59",
+  "usageLimit": 100,
+  "active": true
+}
+```
+
+Tạo mã giảm số tiền cố định:
+
+```json
+{
+  "code": "GIAM30000",
+  "name": "Giảm 30000",
+  "description": "Giảm 30000 cho đơn từ 150000",
+  "type": "FIXED_AMOUNT",
+  "discountValue": 30000,
+  "minOrderAmount": 150000,
+  "maxDiscountAmount": null,
+  "startTime": "2026-06-01T00:00:00",
+  "endTime": "2026-12-31T23:59:59",
+  "usageLimit": 100,
+  "active": true
+}
+```
+
+Áp dụng mã giảm giá:
+
+```http
+POST http://localhost:8080/api/coupons/apply
+```
+
+```json
+{
+  "code": "CINEVE10",
+  "orderAmount": 200000
+}
+```
+
+Response trả `discountAmount` và `finalAmount` để frontend hiển thị.
+
+Tắt mã giảm giá:
+
+```http
+DELETE http://localhost:8080/api/admin/coupons/{couponId}
+Authorization: Bearer <admin_token>
+```
+
+## File đã tạo/sửa ở giai đoạn 7 theo AGENT.md mới
+
+File thêm:
+
+- `src/main/java/com/duynam/cinema/constant/FoodType.java`
+- `src/main/java/com/duynam/cinema/constant/CouponType.java`
+- `src/main/java/com/duynam/cinema/entity/Food.java`
+- `src/main/java/com/duynam/cinema/entity/Coupon.java`
+- `src/main/java/com/duynam/cinema/repository/FoodRepository.java`
+- `src/main/java/com/duynam/cinema/repository/CouponRepository.java`
+- `src/main/java/com/duynam/cinema/dto/request/FoodRequest.java`
+- `src/main/java/com/duynam/cinema/dto/request/CouponRequest.java`
+- `src/main/java/com/duynam/cinema/dto/request/ApplyCouponRequest.java`
+- `src/main/java/com/duynam/cinema/dto/response/FoodResponse.java`
+- `src/main/java/com/duynam/cinema/dto/response/CouponResponse.java`
+- `src/main/java/com/duynam/cinema/dto/response/ApplyCouponResponse.java`
+- `src/main/java/com/duynam/cinema/mapper/FoodMapper.java`
+- `src/main/java/com/duynam/cinema/mapper/CouponMapper.java`
+- `src/main/java/com/duynam/cinema/service/FoodService.java`
+- `src/main/java/com/duynam/cinema/service/CouponService.java`
+- `src/main/java/com/duynam/cinema/controller/FoodController.java`
+- `src/main/java/com/duynam/cinema/controller/AdminFoodController.java`
+- `src/main/java/com/duynam/cinema/controller/CouponController.java`
+- `src/main/java/com/duynam/cinema/controller/AdminCouponController.java`
+
+File sửa:
+
+- `src/main/java/com/duynam/cinema/configuration/SecurityConfig.java`
+- `src/main/java/com/duynam/cinema/exception/ErrorCode.java`
+- `NGUCANH.md`
+
+## Cách test đã dùng sau khi hoàn thiện giai đoạn 7
+
+Command đã chạy thành công:
+
+```bash
+mvn.cmd test -q
+```
+
+Kết quả:
+
+- Test pass.
+- Spring Boot context start được với H2.
+- JPA repository scan được 13 repository, bao gồm `FoodRepository` và `CouponRepository`.
+
 ## Tiến độ hiện tại theo AGENT.md mới
 
 Cập nhật đến hiện tại:
@@ -1521,7 +1757,8 @@ Cập nhật đến hiện tại:
 - Đã hoàn thành Giai đoạn 4: Quản lý phim và thể loại phim.
 - Đã hoàn thành Giai đoạn 5: Quản lý rạp, phòng chiếu và ghế.
 - Đã hoàn thành Giai đoạn 6: Quản lý suất chiếu.
-- Giai đoạn tiếp theo cần làm: Giai đoạn 7 - Đồ ăn, nước uống và mã giảm giá.
+- Đã hoàn thành Giai đoạn 7: Đồ ăn, nước uống và mã giảm giá.
+- Giai đoạn tiếp theo cần làm: Giai đoạn 8 - Đặt vé, thanh toán và vé.
 
 Các API đã có theo nhóm chính:
 
@@ -1530,10 +1767,10 @@ Các API đã có theo nhóm chính:
 - Movie/Genre: public xem/tìm/lọc phim và thể loại, admin quản lý phim/thể loại, trailer, upload poster.
 - Cinema/Room/Seat: public xem/lọc rạp, admin quản lý rạp/phòng/ghế, tạo ghế tự động.
 - Showtime: public xem/lọc lịch chiếu, xem ghế theo suất chiếu, admin quản lý suất chiếu và kiểm tra trùng lịch.
+- Food/Coupon: public xem đồ ăn, nước uống, áp dụng mã giảm giá; admin quản lý đồ ăn, nước uống và mã giảm giá.
 
 Các phần chưa làm:
 
-- Giai đoạn 7: Đồ ăn, nước uống và mã giảm giá.
 - Giai đoạn 8: Đặt vé, thanh toán và vé.
 - Giai đoạn 9: Đánh giá phim, phim yêu thích và thông báo.
 - Giai đoạn 10: Dashboard Admin.
@@ -1545,6 +1782,6 @@ Ghi chú kỹ thuật hiện tại:
 
 - Backend nằm tại `D:\cinema\cinema`.
 - Chạy test bằng `mvn.cmd test -q`.
-- Lần test gần nhất đã pass sau khi hoàn thiện quản lý suất chiếu.
+- Lần test gần nhất đã pass sau khi hoàn thiện đồ ăn, nước uống và mã giảm giá.
 - `GET /api/auth/me` vẫn giữ để kiểm tra token thuộc module auth.
 - `GET /api/users/me` và `PUT /api/users/me` là API hồ sơ cá nhân thuộc module user.
