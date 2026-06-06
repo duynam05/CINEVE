@@ -1749,6 +1749,8 @@ Kết quả:
 
 ## Tiến độ hiện tại theo AGENT.md mới
 
+Cập nhật lần cuối: 04/06/2026 sau khi hoàn thành Giai đoạn 7.
+
 Cập nhật đến hiện tại:
 
 - Đã hoàn thành Giai đoạn 1: Setup nền tảng backend.

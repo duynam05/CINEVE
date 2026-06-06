@@ -16,15 +16,15 @@ function AuthNavbar({ mode, onModeChange }) {
           <NavLink to="/phim" className="nav-link">
             Phim
           </NavLink>
-          <a href="#" className="nav-link">
+          <NavLink to="/rap" className="nav-link">
             Rạp
-          </a>
-          <a href="#" className="nav-link">
+          </NavLink>
+          <NavLink to="/khuyen-mai" className="nav-link">
             Khuyến mãi
-          </a>
-          <a href="#" className="nav-link">
+          </NavLink>
+          <NavLink to="/ve-cua-toi" className="nav-link">
             Vé của tôi
-          </a>
+          </NavLink>
         </div>
 
         <div className="nav-actions">

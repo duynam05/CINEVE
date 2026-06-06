@@ -197,9 +197,9 @@ function MoviesNavbar() {
         <div className="home-nav-links">
           <Link to="/">Trang chủ</Link>
           <Link className="active" to="/phim">Phim</Link>
-          <a href="#">Rạp</a>
-          <a href="#">Khuyến mãi</a>
-          <a href="#">Vé của tôi</a>
+          <Link to="/rap">Rạp</Link>
+          <Link to="/khuyen-mai">Khuyến mãi</Link>
+          <Link to="/ve-cua-toi">Vé của tôi</Link>
         </div>
         <div className="home-nav-actions">
           <button className="icon-button" type="button" aria-label="Tìm kiếm"><Search size={20} /></button>

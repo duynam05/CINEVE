@@ -130,9 +130,9 @@ function HomeNavbar({ isScrolled }) {
             Trang chủ
           </Link>
           <Link to="/phim">Phim</Link>
-          <a href="#rap-pho-bien">Rạp</a>
-          <a href="#khuyen-mai">Khuyến mãi</a>
-          <a href="#">Vé của tôi</a>
+          <Link to="/rap">Rạp</Link>
+          <Link to="/khuyen-mai">Khuyến mãi</Link>
+          <Link to="/ve-cua-toi">Vé của tôi</Link>
         </div>
         <div className="home-nav-actions">
           <button className="icon-button" type="button" aria-label="Tìm kiếm">
@@ -388,10 +388,10 @@ function MobileNav() {
         <Ticket size={22} />
         <span>Phim</span>
       </Link>
-      <a href="#rap-pho-bien">
+      <Link to="/rap">
         <MapPin size={22} />
         <span>Rạp</span>
-      </a>
+      </Link>
       <Link to="/dang-nhap">
         <CircleUserRound size={22} />
         <span>Tôi</span>
