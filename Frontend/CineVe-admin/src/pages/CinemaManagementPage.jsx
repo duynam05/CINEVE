@@ -77,10 +77,10 @@ function CinemaManagementPage() {
               <h1>Quản lý rạp</h1>
               <p>Hệ thống chi nhánh và cụm rạp toàn quốc</p>
             </div>
-            <button type="button" className="add-cinema-button">
+            <Link to="/cinemas/new" className="add-cinema-button">
               <PlusCircle size={20} />
               Thêm rạp mới
-            </button>
+            </Link>
           </section>
 
           <section className="cinema-stat-grid">
@@ -114,11 +114,11 @@ function CinemaSidebar() {
     { label: "Dashboard", icon: LayoutDashboard, to: "/dashboard" },
     { label: "Phim", icon: Film, to: "/movies" },
     { label: "Rạp", icon: Warehouse, to: "/cinemas", active: true },
-    { label: "Phòng chiếu", icon: Clapperboard, to: "#" },
-    { label: "Lịch chiếu", icon: CalendarDays, to: "#" },
-    { label: "Đặt vé", icon: Ticket, to: "#" },
-    { label: "Đồ ăn/Combo", icon: Popcorn, to: "#" },
-    { label: "Mã giảm giá", icon: Ticket, to: "#" }
+    { label: "Phòng chiếu", icon: Clapperboard, to: "/rooms" },
+    { label: "Lịch chiếu", icon: CalendarDays, to: "/showtimes" },
+    { label: "Đặt vé", icon: Ticket, to: "/bookings" },
+    { label: "Đồ ăn/Combo", icon: Popcorn, to: "/foods" },
+    { label: "Mã giảm giá", icon: Ticket, to: "/promotions" }
   ];
 
   return (

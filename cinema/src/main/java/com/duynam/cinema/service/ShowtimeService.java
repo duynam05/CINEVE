@@ -2,7 +2,9 @@ package com.duynam.cinema.service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +30,7 @@ import com.duynam.cinema.repository.MovieRepository;
 import com.duynam.cinema.repository.RoomRepository;
 import com.duynam.cinema.repository.SeatRepository;
 import com.duynam.cinema.repository.ShowtimeRepository;
+import com.duynam.cinema.repository.BookingSeatRepository;
 
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +44,7 @@ public class ShowtimeService {
     MovieRepository movieRepository;
     RoomRepository roomRepository;
     SeatRepository seatRepository;
+    BookingSeatRepository bookingSeatRepository;
     ShowtimeMapper showtimeMapper;
 
     public List<ShowtimeResponse> searchPublicShowtimes(
@@ -91,9 +95,10 @@ public class ShowtimeService {
         }
 
         Room room = showtime.getRoom();
+        Set<String> bookedSeatIds = new HashSet<>(bookingSeatRepository.findActiveBookedSeatIdsByShowtimeId(showtime.getId()));
         List<ShowtimeSeatResponse> seats = seatRepository.findAllByRoomIdOrderByRowNameAscColumnNumberAsc(room.getId())
                 .stream()
-                .map(this::toShowtimeSeatResponse)
+                .map(seat -> toShowtimeSeatResponse(seat, bookedSeatIds))
                 .toList();
 
         return ShowtimeSeatMapResponse.builder()
@@ -230,7 +235,7 @@ public class ShowtimeService {
                 .orElseThrow(() -> new AppException(ErrorCode.MOVIE_NOT_FOUND));
     }
 
-    private ShowtimeSeatResponse toShowtimeSeatResponse(Seat seat) {
+    private ShowtimeSeatResponse toShowtimeSeatResponse(Seat seat, Set<String> bookedSeatIds) {
         return ShowtimeSeatResponse.builder()
                 .id(seat.getId())
                 .code(seat.getCode())
@@ -238,16 +243,19 @@ public class ShowtimeService {
                 .columnNumber(seat.getColumnNumber())
                 .type(seat.getType())
                 .seatStatus(seat.getStatus())
-                .showtimeSeatStatus(resolveShowtimeSeatStatus(seat))
+                .showtimeSeatStatus(resolveShowtimeSeatStatus(seat, bookedSeatIds))
                 .build();
     }
 
-    private ShowtimeSeatStatus resolveShowtimeSeatStatus(Seat seat) {
+    private ShowtimeSeatStatus resolveShowtimeSeatStatus(Seat seat, Set<String> bookedSeatIds) {
         if (seat.getStatus() == SeatStatus.MAINTENANCE) {
             return ShowtimeSeatStatus.MAINTENANCE;
         }
         if (seat.getStatus() == SeatStatus.DISABLED) {
             return ShowtimeSeatStatus.DISABLED;
+        }
+        if (bookedSeatIds.contains(seat.getId())) {
+            return ShowtimeSeatStatus.BOOKED;
         }
 
         return ShowtimeSeatStatus.AVAILABLE;

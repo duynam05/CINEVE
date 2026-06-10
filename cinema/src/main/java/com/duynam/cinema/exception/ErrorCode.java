@@ -126,7 +126,29 @@ public enum ErrorCode {
     COUPON_ORDER_AMOUNT_NOT_ENOUGH(6024, "Đơn hàng chưa đủ điều kiện áp dụng mã giảm giá", HttpStatus.BAD_REQUEST),
     COUPON_USAGE_LIMIT_LESS_THAN_USED(6025, "Số lượt dùng không được nhỏ hơn số lượt đã sử dụng", HttpStatus.BAD_REQUEST),
     ORDER_AMOUNT_REQUIRED(6026, "Tổng tiền đơn hàng không được để trống", HttpStatus.BAD_REQUEST),
-    ORDER_AMOUNT_INVALID(6027, "Tổng tiền đơn hàng phải lớn hơn 0", HttpStatus.BAD_REQUEST);
+    ORDER_AMOUNT_INVALID(6027, "Tổng tiền đơn hàng phải lớn hơn 0", HttpStatus.BAD_REQUEST),
+    SHOWTIME_ID_REQUIRED(7001, "Mã suất chiếu không được để trống", HttpStatus.BAD_REQUEST),
+    BOOKING_SEATS_REQUIRED(7002, "Vui lòng chọn ít nhất một ghế", HttpStatus.BAD_REQUEST),
+    SEAT_ID_REQUIRED(7003, "Mã ghế không được để trống", HttpStatus.BAD_REQUEST),
+    FOOD_ID_REQUIRED(7004, "Mã đồ ăn, nước uống không được để trống", HttpStatus.BAD_REQUEST),
+    FOOD_QUANTITY_REQUIRED(7005, "Số lượng đồ ăn, nước uống không được để trống", HttpStatus.BAD_REQUEST),
+    FOOD_QUANTITY_INVALID(7006, "Số lượng đồ ăn, nước uống phải lớn hơn 0", HttpStatus.BAD_REQUEST),
+    PAYMENT_METHOD_REQUIRED(7007, "Phương thức thanh toán không được để trống", HttpStatus.BAD_REQUEST),
+    BOOKING_ID_REQUIRED(7008, "Mã booking không được để trống", HttpStatus.BAD_REQUEST),
+    BOOKING_NOT_FOUND(7009, "Booking không tồn tại", HttpStatus.NOT_FOUND),
+    BOOKING_SEAT_DUPLICATED(7010, "Danh sách ghế bị trùng", HttpStatus.BAD_REQUEST),
+    SEAT_NOT_IN_SHOWTIME_ROOM(7011, "Ghế không thuộc phòng chiếu của suất chiếu", HttpStatus.BAD_REQUEST),
+    SEAT_NOT_AVAILABLE(7012, "Ghế không khả dụng để đặt vé", HttpStatus.BAD_REQUEST),
+    SEAT_ALREADY_BOOKED(7013, "Ghế đã được đặt trong suất chiếu này", HttpStatus.BAD_REQUEST),
+    SHOWTIME_NOT_OPEN(7014, "Suất chiếu không còn mở bán", HttpStatus.BAD_REQUEST),
+    BOOKING_CANCEL_NOT_ALLOWED(7015, "Chỉ được hủy vé trước giờ chiếu ít nhất 2 giờ", HttpStatus.BAD_REQUEST),
+    BOOKING_ALREADY_CANCELLED(7016, "Booking đã bị hủy", HttpStatus.BAD_REQUEST),
+    PAYMENT_NOT_FOUND(7017, "Thanh toán không tồn tại", HttpStatus.NOT_FOUND),
+    PAYMENT_ALREADY_EXISTS(7018, "Booking đã có thanh toán", HttpStatus.BAD_REQUEST),
+    PAYMENT_NOT_PENDING(7019, "Thanh toán không ở trạng thái chờ xử lý", HttpStatus.BAD_REQUEST),
+    PAYMENT_NOT_SUCCESS(7020, "Thanh toán chưa thành công", HttpStatus.BAD_REQUEST),
+    TICKET_NOT_FOUND(7021, "Vé không tồn tại", HttpStatus.NOT_FOUND),
+    TICKET_NOT_ACTIVE(7022, "Vé không còn hiệu lực", HttpStatus.BAD_REQUEST);
 
     private final int code;
     private final String message;

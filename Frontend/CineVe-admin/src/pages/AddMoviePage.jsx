@@ -193,11 +193,11 @@ function AddMovieSidebar() {
     { label: "Dashboard", icon: LayoutDashboard, to: "/dashboard" },
     { label: "Phim", icon: Film, to: "/movies", active: true },
     { label: "Rạp", icon: Warehouse, to: "/cinemas" },
-    { label: "Phòng chiếu", icon: Clapperboard, to: "#" },
-    { label: "Lịch chiếu", icon: CalendarDays, to: "#" },
-    { label: "Đặt vé", icon: Ticket, to: "#" },
-    { label: "Đồ ăn/Combo", icon: Popcorn, to: "#" },
-    { label: "Mã giảm giá", icon: Ticket, to: "#" }
+    { label: "Phòng chiếu", icon: Clapperboard, to: "/rooms" },
+    { label: "Lịch chiếu", icon: CalendarDays, to: "/showtimes" },
+    { label: "Đặt vé", icon: Ticket, to: "/bookings" },
+    { label: "Đồ ăn/Combo", icon: Popcorn, to: "/foods" },
+    { label: "Mã giảm giá", icon: Ticket, to: "/promotions" }
   ];
 
   return (

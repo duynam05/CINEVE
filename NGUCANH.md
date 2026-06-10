@@ -1747,9 +1747,251 @@ Kết quả:
 - Spring Boot context start được với H2.
 - JPA repository scan được 13 repository, bao gồm `FoodRepository` và `CouponRepository`.
 
+## Giai đoạn 8 theo AGENT.md mới đã hoàn thành
+
+Đã triển khai backend module đặt vé, thanh toán giả lập và vé:
+
+- Tạo enum trạng thái booking: `PENDING`, `CONFIRMED`, `CANCELLED`, `COMPLETED`, `EXPIRED`.
+- Tạo enum phương thức thanh toán: `CASH`, `MOMO`, `VNPAY`, `BANK_TRANSFER`, `BANK_CARD`.
+- Tạo enum trạng thái thanh toán: `PENDING`, `SUCCESS`, `FAILED`, `REFUNDED`.
+- Tạo enum trạng thái vé: `ACTIVE`, `USED`, `CANCELLED`, `EXPIRED`.
+- Tạo entity `Booking`, `BookingSeat`, `BookingFood`, `Payment`, `Ticket`.
+- Tạo repository, DTO request/response, mapper và service cho booking/payment/ticket.
+- Tạo API user đặt vé, xem booking của tôi, xem chi tiết booking, xem vé theo booking, hủy vé.
+- Tạo API user tạo thanh toán và giả lập thanh toán thành công/thất bại.
+- Tạo API admin xem/lọc booking, xác nhận/hủy/hoàn tiền booking.
+- Tạo API admin xem/lọc thanh toán, xem chi tiết thanh toán.
+- Tạo API admin xem vé, xem chi tiết vé, đánh dấu vé đã sử dụng.
+- Cập nhật API sơ đồ ghế theo suất chiếu để ghế đã được booking trả trạng thái `BOOKED`.
+
+## Logic đặt vé, thanh toán và vé hiện tại
+
+Đặt vé:
+
+- User phải đăng nhập mới đặt vé được.
+- Backend kiểm tra lại toàn bộ ghế trong transaction, không tin frontend.
+- Khi đặt vé, backend kiểm tra:
+  - Suất chiếu tồn tại và đang `OPEN`.
+  - Suất chiếu phải còn ở tương lai.
+  - Danh sách ghế không bị trùng.
+  - Ghế thuộc đúng phòng của suất chiếu.
+  - Ghế đang `ACTIVE`, không bảo trì hoặc bị khóa.
+  - Ghế chưa thuộc booking đang giữ/chưa hủy trong cùng suất chiếu.
+- Khi kiểm tra trùng ghế, backend chỉ xem các booking trạng thái `PENDING`, `CONFIRMED`, `COMPLETED` là đang giữ ghế.
+- Booking `CANCELLED` hoặc `EXPIRED` không giữ ghế.
+- Backend dùng pessimistic lock khi đọc danh sách ghế lúc đặt vé để giảm rủi ro đặt trùng.
+- Backend tính tiền ghế theo loại ghế:
+  - `NORMAL` dùng `normalSeatPrice`.
+  - `VIP` dùng `vipSeatPrice`.
+  - `COUPLE` dùng `coupleSeatPrice`.
+- Backend tính tiền đồ ăn, nước uống theo số lượng và giá hiện tại của sản phẩm.
+- Nếu có coupon, backend kiểm tra mã còn active, còn hạn, còn lượt dùng và đơn hàng đủ điều kiện.
+- Nếu thanh toán giả lập thành công, booking chuyển `CONFIRMED`, payment chuyển `SUCCESS`, tạo ticket và tăng `usedCount` coupon.
+- Nếu thanh toán giả lập thất bại, booking chuyển `EXPIRED`, payment chuyển `FAILED`, không tạo ticket và không giữ ghế.
+
+Thanh toán:
+
+- Payment có `transactionCode` giả lập.
+- User xem được payment thuộc booking của chính mình.
+- Admin xem được toàn bộ payment và lọc theo `status`, `method`.
+- Admin hoàn tiền giả lập chuyển payment sang `REFUNDED`, booking sang `CANCELLED`, ticket sang `CANCELLED`.
+
+Vé:
+
+- Ticket được tạo khi thanh toán thành công.
+- Ticket có `code` và `qrCode` giả lập dạng `QR-CINEVE:<ticketCode>:<bookingCode>`.
+- User xem vé qua booking của chính mình.
+- Admin xem danh sách vé, xem chi tiết vé.
+- Admin đánh dấu vé đã sử dụng, ticket chuyển `USED`.
+
+Hủy vé:
+
+- User chỉ được hủy vé trước giờ chiếu ít nhất 2 giờ.
+- Khi hủy, booking chuyển `CANCELLED`, ticket chuyển `CANCELLED`.
+- Nếu payment đã `SUCCESS`, hệ thống chuyển payment sang `REFUNDED` giả lập.
+
+## API đặt vé, thanh toán và vé đã có
+
+User API:
+
+```text
+POST /api/bookings
+GET  /api/bookings/my
+GET  /api/bookings/{id}
+GET  /api/bookings/{id}/ticket
+PUT  /api/bookings/{id}/cancel
+
+POST /api/payments/create
+POST /api/payments/fake-success?paymentId=
+POST /api/payments/fake-failed?paymentId=
+GET  /api/payments/{id}
+```
+
+Admin API:
+
+```text
+GET /api/admin/bookings
+GET /api/admin/bookings?keyword=&status=
+GET /api/admin/bookings/{id}
+PUT /api/admin/bookings/{id}/confirm
+PUT /api/admin/bookings/{id}/cancel
+PUT /api/admin/bookings/{id}/refund
+
+GET /api/admin/payments
+GET /api/admin/payments?status=&method=
+GET /api/admin/payments/{id}
+
+GET /api/admin/tickets
+GET /api/admin/tickets/{id}
+PUT /api/admin/tickets/{id}/used
+```
+
+Các API này cần header:
+
+```text
+Authorization: Bearer <token>
+```
+
+Riêng `/api/admin/**` cần role `ADMIN`.
+
+## Body test API giai đoạn 8
+
+Đặt vé:
+
+```http
+POST http://localhost:8080/api/bookings
+Authorization: Bearer <user_token>
+```
+
+```json
+{
+  "showtimeId": "SHOWTIME_ID",
+  "seatIds": ["SEAT_ID_1", "SEAT_ID_2"],
+  "foods": [
+    {
+      "foodId": "FOOD_ID",
+      "quantity": 2
+    }
+  ],
+  "couponCode": "CINEVE10",
+  "paymentMethod": "MOMO",
+  "paymentSuccess": true
+}
+```
+
+Xem booking của tôi:
+
+```http
+GET http://localhost:8080/api/bookings/my
+Authorization: Bearer <user_token>
+```
+
+Xem vé theo booking:
+
+```http
+GET http://localhost:8080/api/bookings/{bookingId}/ticket
+Authorization: Bearer <user_token>
+```
+
+Hủy vé:
+
+```http
+PUT http://localhost:8080/api/bookings/{bookingId}/cancel
+Authorization: Bearer <user_token>
+```
+
+Giả lập thanh toán:
+
+```http
+POST http://localhost:8080/api/payments/fake-success?paymentId=PAYMENT_ID
+Authorization: Bearer <user_token>
+```
+
+```http
+POST http://localhost:8080/api/payments/fake-failed?paymentId=PAYMENT_ID
+Authorization: Bearer <user_token>
+```
+
+Admin lọc booking:
+
+```http
+GET http://localhost:8080/api/admin/bookings?status=CONFIRMED
+Authorization: Bearer <admin_token>
+```
+
+Admin lọc thanh toán:
+
+```http
+GET http://localhost:8080/api/admin/payments?status=SUCCESS&method=MOMO
+Authorization: Bearer <admin_token>
+```
+
+Admin đánh dấu vé đã sử dụng:
+
+```http
+PUT http://localhost:8080/api/admin/tickets/{ticketId}/used
+Authorization: Bearer <admin_token>
+```
+
+## File đã tạo/sửa ở giai đoạn 8 theo AGENT.md mới
+
+File thêm:
+
+- `src/main/java/com/duynam/cinema/constant/BookingStatus.java`
+- `src/main/java/com/duynam/cinema/constant/PaymentMethod.java`
+- `src/main/java/com/duynam/cinema/constant/PaymentStatus.java`
+- `src/main/java/com/duynam/cinema/constant/TicketStatus.java`
+- `src/main/java/com/duynam/cinema/entity/Booking.java`
+- `src/main/java/com/duynam/cinema/entity/BookingSeat.java`
+- `src/main/java/com/duynam/cinema/entity/BookingFood.java`
+- `src/main/java/com/duynam/cinema/entity/Payment.java`
+- `src/main/java/com/duynam/cinema/entity/Ticket.java`
+- `src/main/java/com/duynam/cinema/repository/BookingRepository.java`
+- `src/main/java/com/duynam/cinema/repository/BookingSeatRepository.java`
+- `src/main/java/com/duynam/cinema/repository/BookingFoodRepository.java`
+- `src/main/java/com/duynam/cinema/repository/PaymentRepository.java`
+- `src/main/java/com/duynam/cinema/repository/TicketRepository.java`
+- `src/main/java/com/duynam/cinema/dto/request/BookingRequest.java`
+- `src/main/java/com/duynam/cinema/dto/request/BookingFoodRequest.java`
+- `src/main/java/com/duynam/cinema/dto/request/PaymentRequest.java`
+- `src/main/java/com/duynam/cinema/dto/response/BookingResponse.java`
+- `src/main/java/com/duynam/cinema/dto/response/BookingSeatResponse.java`
+- `src/main/java/com/duynam/cinema/dto/response/BookingFoodResponse.java`
+- `src/main/java/com/duynam/cinema/dto/response/PaymentResponse.java`
+- `src/main/java/com/duynam/cinema/dto/response/TicketResponse.java`
+- `src/main/java/com/duynam/cinema/mapper/BookingMapper.java`
+- `src/main/java/com/duynam/cinema/service/BookingService.java`
+- `src/main/java/com/duynam/cinema/controller/BookingController.java`
+- `src/main/java/com/duynam/cinema/controller/AdminBookingController.java`
+- `src/main/java/com/duynam/cinema/controller/PaymentController.java`
+- `src/main/java/com/duynam/cinema/controller/AdminPaymentController.java`
+- `src/main/java/com/duynam/cinema/controller/AdminTicketController.java`
+
+File sửa:
+
+- `src/main/java/com/duynam/cinema/repository/SeatRepository.java`
+- `src/main/java/com/duynam/cinema/service/ShowtimeService.java`
+- `src/main/java/com/duynam/cinema/exception/ErrorCode.java`
+- `NGUCANH.md`
+
+## Cách test đã dùng sau khi hoàn thiện giai đoạn 8
+
+Command đã chạy thành công:
+
+```bash
+mvn.cmd test -q
+```
+
+Kết quả:
+
+- Test pass.
+- Spring Boot context start được với H2.
+- JPA repository scan được 18 repository, bao gồm `BookingRepository`, `BookingSeatRepository`, `BookingFoodRepository`, `PaymentRepository`, `TicketRepository`.
+- Query kiểm tra ghế đã booking, query lọc booking/payment và các quan hệ booking-payment-ticket load được.
+
 ## Tiến độ hiện tại theo AGENT.md mới
 
-Cập nhật lần cuối: 04/06/2026 sau khi hoàn thành Giai đoạn 7.
+Cập nhật lần cuối: 10/06/2026 sau khi hoàn thành Giai đoạn 8.
 
 Cập nhật đến hiện tại:
 
@@ -1760,7 +2002,8 @@ Cập nhật đến hiện tại:
 - Đã hoàn thành Giai đoạn 5: Quản lý rạp, phòng chiếu và ghế.
 - Đã hoàn thành Giai đoạn 6: Quản lý suất chiếu.
 - Đã hoàn thành Giai đoạn 7: Đồ ăn, nước uống và mã giảm giá.
-- Giai đoạn tiếp theo cần làm: Giai đoạn 8 - Đặt vé, thanh toán và vé.
+- Đã hoàn thành Giai đoạn 8: Đặt vé, thanh toán và vé.
+- Giai đoạn tiếp theo cần làm: Giai đoạn 9 - Đánh giá phim, phim yêu thích và thông báo.
 
 Các API đã có theo nhóm chính:
 
@@ -1770,10 +2013,10 @@ Các API đã có theo nhóm chính:
 - Cinema/Room/Seat: public xem/lọc rạp, admin quản lý rạp/phòng/ghế, tạo ghế tự động.
 - Showtime: public xem/lọc lịch chiếu, xem ghế theo suất chiếu, admin quản lý suất chiếu và kiểm tra trùng lịch.
 - Food/Coupon: public xem đồ ăn, nước uống, áp dụng mã giảm giá; admin quản lý đồ ăn, nước uống và mã giảm giá.
+- Booking/Payment/Ticket: user đặt vé, xem/hủy booking, xem vé, thanh toán giả lập; admin quản lý booking, payment, ticket.
 
 Các phần chưa làm:
 
-- Giai đoạn 8: Đặt vé, thanh toán và vé.
 - Giai đoạn 9: Đánh giá phim, phim yêu thích và thông báo.
 - Giai đoạn 10: Dashboard Admin.
 - Giai đoạn 11: Frontend người dùng.
@@ -1784,6 +2027,6 @@ Ghi chú kỹ thuật hiện tại:
 
 - Backend nằm tại `D:\cinema\cinema`.
 - Chạy test bằng `mvn.cmd test -q`.
-- Lần test gần nhất đã pass sau khi hoàn thiện đồ ăn, nước uống và mã giảm giá.
+- Lần test gần nhất đã pass sau khi hoàn thiện đặt vé, thanh toán và vé.
 - `GET /api/auth/me` vẫn giữ để kiểm tra token thuộc module auth.
 - `GET /api/users/me` và `PUT /api/users/me` là API hồ sơ cá nhân thuộc module user.

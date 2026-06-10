@@ -26,11 +26,11 @@ const sidebarItems = [
   { label: "Dashboard", icon: LayoutDashboard, to: "/dashboard", active: true },
   { label: "Phim", icon: Film, to: "/movies" },
   { label: "Rạp", icon: Warehouse, to: "/cinemas" },
-  { label: "Phòng chiếu", icon: Clapperboard },
-  { label: "Lịch chiếu", icon: CalendarDays },
-  { label: "Đặt vé", icon: Ticket },
-  { label: "Đồ ăn/Combo", icon: Popcorn },
-  { label: "Mã giảm giá", icon: Ticket }
+  { label: "Phòng chiếu", icon: Clapperboard, to: "/rooms" },
+  { label: "Lịch chiếu", icon: CalendarDays, to: "/showtimes" },
+  { label: "Đặt vé", icon: Ticket, to: "/bookings" },
+  { label: "Đồ ăn/Combo", icon: Popcorn, to: "/foods" },
+  { label: "Mã giảm giá", icon: Ticket, to: "/promotions" }
 ];
 
 const stats = [
