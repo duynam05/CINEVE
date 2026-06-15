@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.duynam.cinema.constant.BookingStatus;
 import com.duynam.cinema.constant.CouponType;
+import com.duynam.cinema.constant.NotificationType;
 import com.duynam.cinema.constant.PaymentMethod;
 import com.duynam.cinema.constant.PaymentStatus;
 import com.duynam.cinema.constant.SeatStatus;
@@ -79,6 +80,7 @@ public class BookingService {
     CouponRepository couponRepository;
     UserRepository userRepository;
     BookingMapper bookingMapper;
+    NotificationService notificationService;
 
     @Transactional
     public BookingResponse createBooking(BookingRequest request) {
@@ -132,6 +134,7 @@ public class BookingService {
             payment.setPaidAt(Instant.now());
             incrementCouponUsage(coupon);
             ticket = ticketRepository.save(createTicketEntity(booking));
+            createBookingSuccessNotification(booking);
         }
         payment = paymentRepository.save(payment);
 
@@ -194,6 +197,7 @@ public class BookingService {
         }
 
         boolean wasPaymentSuccess = payment.getStatus() == PaymentStatus.SUCCESS;
+        boolean wasBookingConfirmed = booking.getStatus() == BookingStatus.CONFIRMED;
         booking.setStatus(BookingStatus.CONFIRMED);
         payment.setStatus(PaymentStatus.SUCCESS);
         payment.setPaidAt(Instant.now());
@@ -201,6 +205,9 @@ public class BookingService {
                 .orElseGet(() -> ticketRepository.save(createTicketEntity(booking)));
         if (!wasPaymentSuccess) {
             incrementCouponUsage(booking.getCoupon());
+        }
+        if (!wasBookingConfirmed) {
+            createBookingSuccessNotification(booking);
         }
 
         paymentRepository.save(payment);
@@ -238,6 +245,7 @@ public class BookingService {
         });
 
         paymentRepository.save(payment);
+        createBookingCancelledNotification(booking);
         return toBookingResponse(bookingRepository.save(booking));
     }
 
@@ -272,6 +280,7 @@ public class BookingService {
         ticketRepository.findByBookingId(booking.getId())
                 .orElseGet(() -> ticketRepository.save(createTicketEntity(booking)));
         incrementCouponUsage(booking.getCoupon());
+        createBookingSuccessNotification(booking);
 
         bookingRepository.save(booking);
         return bookingMapper.toPaymentResponse(paymentRepository.save(payment));
@@ -393,6 +402,25 @@ public class BookingService {
                 paymentRepository.save(payment);
             }
         });
+        createBookingCancelledNotification(booking);
+    }
+
+    private void createBookingSuccessNotification(Booking booking) {
+        notificationService.create(
+                booking.getUser(),
+                NotificationType.BOOKING_SUCCESS,
+                "Đặt vé thành công",
+                "Booking " + booking.getCode() + " cho phim " + booking.getShowtime().getMovie().getTitle() + " đã được xác nhận.",
+                booking.getId());
+    }
+
+    private void createBookingCancelledNotification(Booking booking) {
+        notificationService.create(
+                booking.getUser(),
+                NotificationType.BOOKING_CANCELLED,
+                "Booking đã hủy",
+                "Booking " + booking.getCode() + " cho phim " + booking.getShowtime().getMovie().getTitle() + " đã được hủy.",
+                booking.getId());
     }
 
     private void validateCanCancel(Booking booking) {

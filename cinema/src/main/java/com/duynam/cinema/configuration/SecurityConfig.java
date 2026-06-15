@@ -45,16 +45,19 @@ public class SecurityConfig {
             "/api/auth/resend-verification",
             "/api/auth/forgot-password",
             "/api/auth/reset-password",
-            "/api/genres/**",
-            "/api/movies/**",
-            "/api/cinemas/**",
-            "/api/showtimes/**",
-            "/api/foods/**",
             "/api/coupons/apply",
             "/uploads/**",
             "/v3/api-docs/**",
             "/swagger-ui/**",
             "/swagger-ui.html"
+    };
+
+    private static final String[] PUBLIC_GET_ENDPOINTS = {
+            "/api/genres/**",
+            "/api/movies/**",
+            "/api/cinemas/**",
+            "/api/showtimes/**",
+            "/api/foods/**"
     };
 
     JwtProperties jwtProperties;
@@ -70,6 +73,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(request -> request
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
+                        .requestMatchers(HttpMethod.GET, PUBLIC_GET_ENDPOINTS).permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2

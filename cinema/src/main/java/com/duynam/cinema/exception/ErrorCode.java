@@ -148,7 +148,16 @@ public enum ErrorCode {
     PAYMENT_NOT_PENDING(7019, "Thanh toán không ở trạng thái chờ xử lý", HttpStatus.BAD_REQUEST),
     PAYMENT_NOT_SUCCESS(7020, "Thanh toán chưa thành công", HttpStatus.BAD_REQUEST),
     TICKET_NOT_FOUND(7021, "Vé không tồn tại", HttpStatus.NOT_FOUND),
-    TICKET_NOT_ACTIVE(7022, "Vé không còn hiệu lực", HttpStatus.BAD_REQUEST);
+    TICKET_NOT_ACTIVE(7022, "Vé không còn hiệu lực", HttpStatus.BAD_REQUEST),
+    REVIEW_RATING_REQUIRED(8001, "Số sao đánh giá không được để trống", HttpStatus.BAD_REQUEST),
+    REVIEW_RATING_INVALID(8002, "Số sao đánh giá phải từ 1 đến 5", HttpStatus.BAD_REQUEST),
+    REVIEW_CONTENT_INVALID(8003, "Nội dung đánh giá không được vượt quá 1000 ký tự", HttpStatus.BAD_REQUEST),
+    REVIEW_NOT_FOUND(8004, "Đánh giá không tồn tại", HttpStatus.NOT_FOUND),
+    REVIEW_ALREADY_EXISTS(8005, "Bạn đã đánh giá phim này", HttpStatus.BAD_REQUEST),
+    REVIEW_BOOKING_REQUIRED(8006, "Chỉ người đã đặt vé phim này mới được đánh giá", HttpStatus.FORBIDDEN),
+    FAVORITE_ALREADY_EXISTS(8007, "Phim đã có trong danh sách yêu thích", HttpStatus.BAD_REQUEST),
+    FAVORITE_NOT_FOUND(8008, "Phim yêu thích không tồn tại", HttpStatus.NOT_FOUND),
+    NOTIFICATION_NOT_FOUND(8009, "Thông báo không tồn tại", HttpStatus.NOT_FOUND);
 
     private final int code;
     private final String message;

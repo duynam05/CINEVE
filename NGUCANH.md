@@ -1989,9 +1989,21 @@ Kết quả:
 - JPA repository scan được 18 repository, bao gồm `BookingRepository`, `BookingSeatRepository`, `BookingFoodRepository`, `PaymentRepository`, `TicketRepository`.
 - Query kiểm tra ghế đã booking, query lọc booking/payment và các quan hệ booking-payment-ticket load được.
 
+Luồng test API thủ công gợi ý:
+
+1. Đăng nhập user để lấy `user_token`.
+2. Đăng nhập admin để lấy `admin_token`.
+3. Gọi `GET /api/showtimes/{showtimeId}/seats` để lấy ghế `AVAILABLE`.
+4. Gọi `POST /api/bookings` với `paymentSuccess = true` để tạo booking `CONFIRMED`, payment `SUCCESS` và ticket `ACTIVE`.
+5. Gọi lại `GET /api/showtimes/{showtimeId}/seats` để kiểm tra ghế vừa đặt chuyển sang `BOOKED`.
+6. Gọi lại `POST /api/bookings` với cùng ghế để kiểm tra lỗi `SEAT_ALREADY_BOOKED`.
+7. Gọi `GET /api/bookings/my`, `GET /api/bookings/{id}` và `GET /api/bookings/{id}/ticket` để kiểm tra user chỉ xem được dữ liệu của mình.
+8. Gọi `PUT /api/bookings/{id}/cancel` để kiểm tra hủy vé trước giờ chiếu ít nhất 2 giờ.
+9. Gọi các API admin `/api/admin/bookings`, `/api/admin/payments`, `/api/admin/tickets` để kiểm tra lọc, xem chi tiết, hoàn tiền và đánh dấu vé đã sử dụng.
+
 ## Tiến độ hiện tại theo AGENT.md mới
 
-Cập nhật lần cuối: 10/06/2026 sau khi hoàn thành Giai đoạn 8.
+Cập nhật lần cuối: 13/06/2026 sau khi hoàn thành Giai đoạn 9 - Đánh giá phim, phim yêu thích và thông báo.
 
 Cập nhật đến hiện tại:
 
@@ -2003,7 +2015,8 @@ Cập nhật đến hiện tại:
 - Đã hoàn thành Giai đoạn 6: Quản lý suất chiếu.
 - Đã hoàn thành Giai đoạn 7: Đồ ăn, nước uống và mã giảm giá.
 - Đã hoàn thành Giai đoạn 8: Đặt vé, thanh toán và vé.
-- Giai đoạn tiếp theo cần làm: Giai đoạn 9 - Đánh giá phim, phim yêu thích và thông báo.
+- Đã hoàn thành Giai đoạn 9: Đánh giá phim, phim yêu thích và thông báo.
+- Giai đoạn tiếp theo cần làm: Giai đoạn 10 - Dashboard Admin.
 
 Các API đã có theo nhóm chính:
 
@@ -2014,10 +2027,10 @@ Các API đã có theo nhóm chính:
 - Showtime: public xem/lọc lịch chiếu, xem ghế theo suất chiếu, admin quản lý suất chiếu và kiểm tra trùng lịch.
 - Food/Coupon: public xem đồ ăn, nước uống, áp dụng mã giảm giá; admin quản lý đồ ăn, nước uống và mã giảm giá.
 - Booking/Payment/Ticket: user đặt vé, xem/hủy booking, xem vé, thanh toán giả lập; admin quản lý booking, payment, ticket.
+- Review/Favorite/Notification: public xem đánh giá phim; user đánh giá phim khi đã đặt vé, quản lý phim yêu thích và thông báo; admin lọc, ẩn/hiện/xóa đánh giá.
 
 Các phần chưa làm:
 
-- Giai đoạn 9: Đánh giá phim, phim yêu thích và thông báo.
 - Giai đoạn 10: Dashboard Admin.
 - Giai đoạn 11: Frontend người dùng.
 - Giai đoạn 12: Frontend Admin.
@@ -2030,3 +2043,167 @@ Ghi chú kỹ thuật hiện tại:
 - Lần test gần nhất đã pass sau khi hoàn thiện đặt vé, thanh toán và vé.
 - `GET /api/auth/me` vẫn giữ để kiểm tra token thuộc module auth.
 - `GET /api/users/me` và `PUT /api/users/me` là API hồ sơ cá nhân thuộc module user.
+
+## Giai đoạn 9 đã hoàn thành
+
+Đã triển khai backend module đánh giá phim, phim yêu thích và thông báo:
+
+- Tạo enum `NotificationType`.
+- Tạo entity `Review`, `Favorite`, `Notification`.
+- Tạo repository, DTO response/request, mapper, service và controller tương ứng.
+- User xem đánh giá public của phim.
+- User tạo/sửa/xóa đánh giá của mình.
+- Backend kiểm tra user phải từng có booking `CONFIRMED` hoặc `COMPLETED` cho phim đó mới được đánh giá.
+- Backend kiểm tra mỗi user chỉ được đánh giá một lần cho một phim.
+- Admin xem/lọc đánh giá theo phim và số sao.
+- Admin ẩn/hiện/xóa đánh giá.
+- User thêm/xóa/xem danh sách phim yêu thích.
+- User xem thông báo cá nhân, đánh dấu đã đọc, xóa thông báo.
+- Backend tự tạo thông báo khi booking được xác nhận thành công.
+- Backend tự tạo thông báo khi booking bị hủy hoặc hoàn tiền.
+- Cập nhật security để các API public của phim/rạp/suất chiếu/đồ ăn chỉ public với method `GET`; `POST /api/movies/{movieId}/reviews` bắt buộc đăng nhập.
+
+## API đánh giá, yêu thích và thông báo đã có
+
+Public API:
+
+```text
+GET /api/movies/{movieId}/reviews
+```
+
+User API:
+
+```text
+POST   /api/movies/{movieId}/reviews
+PUT    /api/reviews/{id}
+DELETE /api/reviews/{id}
+
+GET    /api/favorites
+POST   /api/favorites/{movieId}
+DELETE /api/favorites/{movieId}
+
+GET    /api/notifications/my
+PUT    /api/notifications/{id}/read
+DELETE /api/notifications/{id}
+```
+
+Admin API:
+
+```text
+GET    /api/admin/reviews
+GET    /api/admin/reviews?movieId=&rating=
+PATCH  /api/admin/reviews/{id}/hide
+PATCH  /api/admin/reviews/{id}/show
+DELETE /api/admin/reviews/{id}
+```
+
+## Body test API giai đoạn 9
+
+Tạo đánh giá phim:
+
+```http
+POST http://localhost:8080/api/movies/{movieId}/reviews
+Authorization: Bearer <user_token>
+```
+
+```json
+{
+  "rating": 5,
+  "content": "Phim hay, âm thanh và hình ảnh rất tốt"
+}
+```
+
+Cập nhật đánh giá:
+
+```http
+PUT http://localhost:8080/api/reviews/{reviewId}
+Authorization: Bearer <user_token>
+```
+
+```json
+{
+  "rating": 4,
+  "content": "Phim ổn, đáng xem"
+}
+```
+
+Thêm phim yêu thích:
+
+```http
+POST http://localhost:8080/api/favorites/{movieId}
+Authorization: Bearer <user_token>
+```
+
+Xem thông báo của tôi:
+
+```http
+GET http://localhost:8080/api/notifications/my
+Authorization: Bearer <user_token>
+```
+
+Đánh dấu thông báo đã đọc:
+
+```http
+PUT http://localhost:8080/api/notifications/{notificationId}/read
+Authorization: Bearer <user_token>
+```
+
+Admin lọc đánh giá:
+
+```http
+GET http://localhost:8080/api/admin/reviews?rating=5
+Authorization: Bearer <admin_token>
+```
+
+## File đã tạo/sửa ở giai đoạn 9
+
+File thêm:
+
+- `src/main/java/com/duynam/cinema/constant/NotificationType.java`
+- `src/main/java/com/duynam/cinema/entity/Review.java`
+- `src/main/java/com/duynam/cinema/entity/Favorite.java`
+- `src/main/java/com/duynam/cinema/entity/Notification.java`
+- `src/main/java/com/duynam/cinema/repository/ReviewRepository.java`
+- `src/main/java/com/duynam/cinema/repository/FavoriteRepository.java`
+- `src/main/java/com/duynam/cinema/repository/NotificationRepository.java`
+- `src/main/java/com/duynam/cinema/dto/request/ReviewRequest.java`
+- `src/main/java/com/duynam/cinema/dto/response/ReviewResponse.java`
+- `src/main/java/com/duynam/cinema/dto/response/FavoriteResponse.java`
+- `src/main/java/com/duynam/cinema/dto/response/NotificationResponse.java`
+- `src/main/java/com/duynam/cinema/mapper/ReviewMapper.java`
+- `src/main/java/com/duynam/cinema/mapper/FavoriteMapper.java`
+- `src/main/java/com/duynam/cinema/mapper/NotificationMapper.java`
+- `src/main/java/com/duynam/cinema/service/ReviewService.java`
+- `src/main/java/com/duynam/cinema/service/FavoriteService.java`
+- `src/main/java/com/duynam/cinema/service/NotificationService.java`
+- `src/main/java/com/duynam/cinema/controller/ReviewController.java`
+- `src/main/java/com/duynam/cinema/controller/AdminReviewController.java`
+- `src/main/java/com/duynam/cinema/controller/FavoriteController.java`
+- `src/main/java/com/duynam/cinema/controller/NotificationController.java`
+
+File sửa:
+
+- `src/main/java/com/duynam/cinema/configuration/SecurityConfig.java`
+- `src/main/java/com/duynam/cinema/exception/ErrorCode.java`
+- `src/main/java/com/duynam/cinema/repository/BookingRepository.java`
+- `src/main/java/com/duynam/cinema/service/BookingService.java`
+- `NGUCANH.md`
+
+## Cách test đã dùng sau khi hoàn thiện giai đoạn 9
+
+Command đã chạy thành công:
+
+```bash
+mvn.cmd test -q
+```
+
+Kết quả:
+
+- Test pass.
+- Spring Boot context start được với H2.
+- JPA repository scan được 21 repository, bao gồm `ReviewRepository`, `FavoriteRepository`, `NotificationRepository`.
+
+## Tiến độ hiện tại sau giai đoạn 9
+
+- Đã hoàn thành Giai đoạn 9: Đánh giá phim, phim yêu thích và thông báo.
+- Giai đoạn tiếp theo cần làm: Giai đoạn 10 - Dashboard Admin.

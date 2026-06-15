@@ -2,6 +2,7 @@ package com.duynam.cinema.repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Collection;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -18,6 +19,11 @@ public interface BookingRepository extends JpaRepository<Booking, String> {
     List<Booking> findAllByUserEmailOrderByCreatedAtDesc(String email);
 
     Optional<Booking> findByIdAndUserEmail(String id, String email);
+
+    boolean existsByUserEmailAndShowtimeMovieIdAndStatusIn(
+            String email,
+            String movieId,
+            Collection<BookingStatus> statuses);
 
     @Query("""
             select b from Booking b
