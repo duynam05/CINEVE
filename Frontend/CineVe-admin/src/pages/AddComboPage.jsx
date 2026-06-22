@@ -19,6 +19,9 @@ import {
   Warehouse
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { toast } from "react-toastify";
+import { adminFoodApi } from "../api/adminApi";
+import { getErrorMessage } from "../api/axiosClient";
 
 const includedItems = [
   {
@@ -38,11 +41,29 @@ const includedItems = [
 function AddComboPage() {
   const [isDragging, setIsDragging] = useState(false);
 
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const category = formData.get("type") || "COMBO";
+
+    try {
+      await adminFoodApi.create({
+        name: formData.get("name") || "",
+        description: formData.get("description") || "",
+        type: category,
+        price: Number(formData.get("price") || 0),
+        imageUrl: "",
+        active: formData.get("active") === "on"
+      });
+      toast.success("Thao tác thành công");
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  };
+
   return (
     <div className="admin-shell">
-      <AddComboSidebar />
       <div className="admin-workspace">
-        <AddComboTopbar />
         <main className="add-combo-main">
           <header className="add-combo-title">
             <Link to="/foods" aria-label="Quay lại quản lý đồ ăn">
@@ -54,32 +75,32 @@ function AddComboPage() {
             </div>
           </header>
 
-          <form className="add-combo-form" onSubmit={(event) => event.preventDefault()}>
+          <form className="add-combo-form" onSubmit={handleSubmit}>
             <section className="add-combo-left">
               <article className="add-combo-panel">
                 <label>
                   <span>Tên combo</span>
-                  <input placeholder="Nhập tên combo (VD: Combo Solo, Combo Couple...)" />
+                  <input name="name" placeholder="Nhập tên combo (VD: Combo Solo, Combo Couple...)" />
                 </label>
                 <label>
                   <span>Mô tả</span>
-                  <textarea rows="4" placeholder="Mô tả ngắn gọn về combo này..." />
+                  <textarea name="description" rows="4" placeholder="Mô tả ngắn gọn về combo này..." />
                 </label>
                 <div className="add-combo-two-cols">
                   <label>
                     <span>Giá bán (VNĐ)</span>
                     <div className="add-combo-price">
-                      <input type="number" min="0" placeholder="0" />
+                      <input name="price" type="number" min="0" placeholder="0" />
                       <strong>đ</strong>
                     </div>
                   </label>
                   <label>
                     <span>Danh mục</span>
-                    <select defaultValue="Combo tiết kiệm">
-                      <option>Combo tiết kiệm</option>
-                      <option>Combo VIP</option>
-                      <option>Đồ ăn lẻ</option>
-                      <option>Nước uống</option>
+                    <select name="type" defaultValue="COMBO">
+                      <option value="COMBO">Combo tiết kiệm</option>
+                      <option value="COMBO">Combo VIP</option>
+                      <option value="SNACK">Đồ ăn lẻ</option>
+                      <option value="DRINK">Nước uống</option>
                     </select>
                   </label>
                 </div>
@@ -143,6 +164,7 @@ function AddComboPage() {
                 <ToggleSetting
                   title="Hiển thị trên app"
                   description="Khách hàng có thể nhìn thấy combo này"
+                  name="active"
                   defaultChecked
                 />
                 <ToggleSetting
@@ -166,7 +188,7 @@ function AddComboPage() {
   );
 }
 
-function ToggleSetting({ title, description, defaultChecked = false, accent = "red" }) {
+function ToggleSetting({ title, description, defaultChecked = false, accent = "red", name }) {
   return (
     <div className="add-combo-toggle-row">
       <div>
@@ -174,7 +196,7 @@ function ToggleSetting({ title, description, defaultChecked = false, accent = "r
         <span>{description}</span>
       </div>
       <label className={`food-switch ${accent}`} aria-label={title}>
-        <input type="checkbox" defaultChecked={defaultChecked} />
+        <input name={name} type="checkbox" defaultChecked={defaultChecked} />
         <span />
       </label>
     </div>

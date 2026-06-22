@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Bell,
   CalendarDays,
@@ -24,62 +24,70 @@ import {
   X
 } from "lucide-react";
 import { Link } from "react-router-dom";
-
-const bookings = [
-  {
-    id: "#CB-92831",
-    time: "10:45 AM, 24/05",
-    customer: "Nguyễn Hữu An",
-    phone: "0901234xxx",
-    initials: "NH",
-    movie: "Dune: Part Two (IMAX)",
-    show: "Cinema Q1 • 20:30",
-    seats: ["J12", "J13"],
-    total: "320.000đ",
-    status: "Đã thanh toán",
-    note: "Hoàn tất đơn",
-    tone: "paid"
-  },
-  {
-    id: "#CB-92832",
-    time: "11:12 AM, 24/05",
-    customer: "Lê Minh Tuấn",
-    phone: "0988776xxx",
-    initials: "MT",
-    movie: "Oppenheimer",
-    show: "Cinema Thủ Đức • 14:00",
-    seats: ["F05 (VIP)"],
-    total: "150.000đ",
-    status: "Chờ thanh toán",
-    note: "Đang xử lý",
-    tone: "pending"
-  },
-  {
-    id: "#CB-92833",
-    time: "09:00 AM, 24/05",
-    customer: "Phạm Văn Nam",
-    phone: "0345678xxx",
-    initials: "PV",
-    movie: "Godzilla x Kong",
-    show: "Cinema Q1 • 19:15",
-    seats: ["A01"],
-    total: "95.000đ",
-    status: "Đã hủy",
-    note: "Đang hoàn tiền",
-    tone: "cancelled"
-  }
-];
+import { toast } from "react-toastify";
+import { adminBookingApi } from "../api/adminApi";
+import { getErrorMessage } from "../api/axiosClient";
+import { asArray, bookingStatusLabel, bookingTone, formatCompactCurrency, formatCurrency, formatDateTime, getInitials } from "../api/formatters";
 
 function BookingManagementPage() {
+  const [bookings, setBookings] = useState([]);
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  const loadBookings = async () => {
+    try {
+      setLoading(true);
+      const data = await adminBookingApi.list();
+      setBookings(asArray(data).map(mapBooking));
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+      setBookings([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadBookings();
+  }, []);
+
+  const visibleBookings = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return bookings;
+    return bookings.filter((booking) =>
+      [booking.id, booking.customer, booking.movie].join(" ").toLowerCase().includes(normalized)
+    );
+  }, [bookings, query]);
+
+  const stats = useMemo(() => {
+    const revenue = bookings.reduce((sum, item) => sum + Number(item.rawTotal || 0), 0);
+    return {
+      total: bookings.length,
+      revenue,
+      pending: bookings.filter((item) => item.rawStatus === "PENDING").length,
+      cancelled: bookings.filter((item) => item.rawStatus === "CANCELLED").length
+    };
+  }, [bookings]);
+
+  const handleAction = async (booking, action) => {
+    try {
+      if (action === "confirm") await adminBookingApi.confirm(booking.rawId);
+      if (action === "cancel") await adminBookingApi.cancel(booking.rawId);
+      if (action === "refund") await adminBookingApi.refund(booking.rawId);
+      toast.success("Thao tác thành công");
+      loadBookings();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  };
+
   return (
     <div className="admin-shell">
-      <BookingSidebar />
       <div className="admin-workspace">
-        <BookingTopbar />
         <main className="booking-admin-main">
           <section className="booking-heading">
             <h1>Quản lý đặt vé</h1>
-            <p>Theo dõi và xử lý các đơn hàng vé trực tuyến</p>
+            <p>{loading ? "Đang tải dữ liệu..." : "Theo dõi và xử lý các đơn hàng vé trực tuyến"}</p>
           </section>
 
           <section className="booking-filter-grid">
@@ -87,23 +95,19 @@ function BookingManagementPage() {
               <span>Tìm kiếm đơn hàng</span>
               <div>
                 <Search size={18} />
-                <input placeholder="Mã đơn hàng, tên khách..." />
+                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Mã đơn hàng, tên khách..." />
               </div>
             </label>
             <label>
               <span>Rạp chiếu</span>
               <select defaultValue="all">
                 <option value="all">Tất cả các rạp</option>
-                <option>CineVe Quận 1</option>
-                <option>CineVe Thủ Đức</option>
               </select>
             </label>
             <label>
               <span>Phim</span>
               <select defaultValue="all">
                 <option value="all">Tất cả phim</option>
-                <option>Dune: Part Two</option>
-                <option>Oppenheimer</option>
               </select>
             </label>
             <label>
@@ -117,10 +121,10 @@ function BookingManagementPage() {
           </section>
 
           <section className="booking-stat-grid">
-            <BookingStat label="Tổng đơn hôm nay" value="128" meta="+12%" tone="red" trend="up" />
-            <BookingStat label="Doanh thu ngày" value="24.5M" meta="+5.2%" tone="gold" trend="up" />
-            <BookingStat label="Đang chờ xác nhận" value="14" meta="Thao tác nhanh" tone="silver" />
-            <BookingStat label="Đã hủy/Hoàn tiền" value="3" meta="-2%" tone="danger" trend="down" />
+            <BookingStat label="Tổng đơn hôm nay" value={stats.total} meta="+0%" tone="red" trend="up" />
+            <BookingStat label="Doanh thu ngày" value={formatCompactCurrency(stats.revenue)} meta="+0%" tone="gold" trend="up" />
+            <BookingStat label="Đang chờ xác nhận" value={stats.pending} meta="Thao tác nhanh" tone="silver" />
+            <BookingStat label="Đã hủy/Hoàn tiền" value={stats.cancelled} meta="-0%" tone="danger" trend="down" />
           </section>
 
           <section className="booking-table-card">
@@ -138,8 +142,8 @@ function BookingManagementPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {bookings.map((booking) => (
-                    <tr key={booking.id}>
+                  {visibleBookings.length ? visibleBookings.map((booking) => (
+                    <tr key={booking.rawId}>
                       <td>
                         <strong className="booking-id">{booking.id}</strong>
                         <span>{booking.time}</span>
@@ -178,15 +182,19 @@ function BookingManagementPage() {
                         </div>
                       </td>
                       <td>
-                        <BookingActions tone={booking.tone} />
+                        <BookingActions tone={booking.tone} onAction={(action) => handleAction(booking, action)} />
                       </td>
                     </tr>
-                  ))}
+                  )) : (
+                    <tr>
+                      <td colSpan="7">Chưa có dữ liệu</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
             <footer className="booking-pagination">
-              <p>Hiển thị <strong>1-10</strong> trong số <strong>1,248</strong> đơn hàng</p>
+              <p>Hiển thị <strong>1-{visibleBookings.length}</strong> trong số <strong>{bookings.length}</strong> đơn hàng</p>
               <div>
                 <button type="button" disabled><ChevronLeft size={16} /></button>
                 <button type="button" className="active">1</button>
@@ -218,7 +226,7 @@ function BookingStat({ label, value, meta, tone, trend }) {
   );
 }
 
-function BookingActions({ tone }) {
+function BookingActions({ tone, onAction }) {
   if (tone === "paid") {
     return (
       <div className="booking-actions">
@@ -231,15 +239,15 @@ function BookingActions({ tone }) {
   if (tone === "pending") {
     return (
       <div className="booking-actions">
-        <button className="confirm" type="button"><Check size={14} /> Xác nhận</button>
-        <button type="button" aria-label="Hủy đơn"><X size={17} /></button>
+        <button className="confirm" type="button" onClick={() => onAction("confirm")}><Check size={14} /> Xác nhận</button>
+        <button type="button" aria-label="Hủy đơn" onClick={() => onAction("cancel")}><X size={17} /></button>
       </div>
     );
   }
 
   return (
     <div className="booking-actions">
-      <button className="refund" type="button">Hoàn tiền</button>
+      <button className="refund" type="button" onClick={() => onAction("refund")}>Hoàn tiền</button>
       <button type="button" aria-label="Thêm thao tác"><MoreVertical size={17} /></button>
     </div>
   );
@@ -302,6 +310,26 @@ function BookingTopbar() {
       </div>
     </header>
   );
+}
+
+function mapBooking(item) {
+  return {
+    rawId: item.id,
+    rawStatus: item.status,
+    rawTotal: item.totalAmount,
+    id: item.code || item.id || "--",
+    time: formatDateTime(item.createdAt),
+    customer: item.userFullName || item.userEmail || "--",
+    phone: item.userEmail || "--",
+    initials: getInitials(item.userFullName || item.userEmail),
+    movie: item.showtime?.movieTitle || "--",
+    show: `${item.showtime?.cinemaName || "--"} • ${formatDateTime(item.showtime?.startTime)}`,
+    seats: asArray(item.seats).map((seat) => seat.seatCode || seat.code || "--"),
+    total: formatCurrency(item.totalAmount),
+    status: bookingStatusLabel(item.status),
+    note: item.payment?.status || "--",
+    tone: bookingTone(item.status)
+  };
 }
 
 export default BookingManagementPage;

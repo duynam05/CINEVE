@@ -1,0 +1,215 @@
+.user-layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.user-layout-main {
+  flex: 1;
+}
+
+.cineve-footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: #070b0a;
+  color: #fff7f6;
+  padding: 80px clamp(24px, 4vw, 64px) 36px;
+}
+
+.cineve-footer-inner {
+  width: 100%;
+  max-width: 1840px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(320px, 1.25fr) minmax(210px, 0.8fr) minmax(210px, 0.8fr) minmax(310px, 1fr);
+  gap: clamp(40px, 7vw, 150px);
+  align-items: start;
+}
+
+.cineve-footer-logo {
+  color: #ff1f2d;
+  display: inline-flex;
+  font-family: "Plus Jakarta Sans", "Inter", sans-serif;
+  font-size: 32px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  margin-bottom: 18px;
+  text-decoration: none;
+}
+
+.cineve-footer-brand p,
+.cineve-footer-column a,
+.cineve-footer-bottom p {
+  color: #f2c7c3;
+}
+
+.cineve-footer-brand p {
+  max-width: 390px;
+  margin: 0;
+  font-size: 21px;
+  line-height: 1.55;
+}
+
+.cineve-footer-socials {
+  display: flex;
+  gap: 22px;
+  margin-top: 24px;
+}
+
+.cineve-footer-socials a {
+  width: auto;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #f2c7c3;
+  display: inline-flex;
+  transition: border-color 180ms ease, color 180ms ease, transform 180ms ease;
+}
+
+.cineve-footer-socials a:hover {
+  color: #ff1f2d;
+  transform: translateY(-2px);
+}
+
+.cineve-footer-column h2,
+.cineve-footer-apps h2 {
+  color: #fff7f6;
+  font-family: "Plus Jakarta Sans", "Inter", sans-serif;
+  font-size: 24px;
+  font-weight: 800;
+  margin: 0 0 28px;
+}
+
+.cineve-footer-column nav {
+  display: grid;
+  gap: 27px;
+}
+
+.cineve-footer-column a {
+  width: fit-content;
+  font-size: 21px;
+  text-decoration: none;
+  transition: color 160ms ease, transform 160ms ease;
+}
+
+.cineve-footer-column a:hover {
+  color: #ff1f2d;
+  transform: translateX(3px);
+}
+
+.cineve-app-buttons {
+  display: grid;
+  gap: 14px;
+}
+
+.cineve-app-buttons a {
+  width: 100%;
+  max-width: 444px;
+  min-height: 68px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 9px;
+  background: #2a2c2d;
+  color: #fff7f6;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 12px 24px;
+  text-decoration: none;
+  transition: border-color 180ms ease, background 180ms ease, transform 180ms ease;
+}
+
+.cineve-app-buttons a:hover {
+  border-color: rgba(255, 31, 45, 0.55);
+  background: rgba(255, 31, 45, 0.1);
+  transform: translateY(-2px);
+}
+
+.cineve-app-buttons small,
+.cineve-app-buttons strong {
+  display: block;
+  line-height: 1.1;
+}
+
+.cineve-app-buttons small {
+  color: #f2c7c3;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.cineve-app-buttons strong {
+  color: #fff7f6;
+  font-size: 21px;
+  margin-top: 3px;
+}
+
+.cineve-footer-bottom {
+  width: 100%;
+  max-width: 1840px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  margin: 82px auto 0;
+  padding-top: 42px;
+  text-align: center;
+}
+
+.cineve-footer-bottom p {
+  margin: 0;
+  font-size: 21px;
+}
+
+@media (max-width: 980px) {
+  .cineve-footer-inner {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 36px 32px;
+  }
+
+  .cineve-footer {
+    padding-inline: 28px;
+  }
+
+  .cineve-footer-brand p,
+  .cineve-footer-column a,
+  .cineve-footer-bottom p {
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 620px) {
+  .cineve-footer {
+    padding: 48px 18px 24px;
+  }
+
+  .cineve-footer-inner {
+    grid-template-columns: 1fr;
+    gap: 34px;
+  }
+
+  .cineve-footer-logo {
+    font-size: 31px;
+  }
+
+  .cineve-footer-brand p,
+  .cineve-footer-column a,
+  .cineve-footer-bottom p {
+    font-size: 16px;
+  }
+
+  .cineve-footer-column h2,
+  .cineve-footer-apps h2 {
+    font-size: 20px;
+    margin-bottom: 18px;
+  }
+
+  .cineve-footer-column nav {
+    gap: 16px;
+  }
+
+  .cineve-app-buttons a {
+    max-width: none;
+    min-height: 62px;
+  }
+
+  .cineve-footer-bottom {
+    margin-top: 36px;
+  }
+}

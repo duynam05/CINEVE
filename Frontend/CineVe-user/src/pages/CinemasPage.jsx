@@ -1,6 +1,9 @@
-import { useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import { Bell, Film, Grid2X2, Mail, MapPin, Play, Search, Smartphone, Star, Ticket, Globe2, SlidersHorizontal } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useEffect } from "react";
+import { cinemaApi } from "../api/clientApi";
+import AccountNavActions from "../components/common/AccountNavActions.jsx";
 
 const cinemas = [
   {
@@ -70,9 +73,20 @@ const cityOptions = ["Hồ Chí Minh", "Hà Nội", "Đà Nẵng", "Cần Thơ"]
 function CinemasPage() {
   const [city, setCity] = useState("Hồ Chí Minh");
   const [keyword, setKeyword] = useState("");
+  const [cinemaItems, setCinemaItems] = useState(cinemas);
+
+  useEffect(() => {
+    cinemaApi.list()
+      .then((result) => {
+        if (result?.length) {
+          setCinemaItems(result.map(mapCinemaItem));
+        }
+      })
+      .catch(() => setCinemaItems(cinemas));
+  }, []);
 
   const filteredCinemas = useMemo(() => {
-    return cinemas.filter((cinema) => {
+    return cinemaItems.filter((cinema) => {
       const matchesCity = cinema.city === city;
       const query = keyword.trim().toLowerCase();
       const matchesKeyword =
@@ -82,7 +96,7 @@ function CinemasPage() {
 
       return matchesCity && matchesKeyword;
     });
-  }, [city, keyword]);
+  }, [cinemaItems, city, keyword]);
 
   return (
     <div className="cinemas-page">
@@ -148,7 +162,6 @@ function CinemasPage() {
           </div>
         </section>
       </main>
-      <CinemasFooter />
     </div>
   );
 }
@@ -168,8 +181,7 @@ function CinemasNavbar() {
         <div className="home-nav-actions">
           <button className="icon-button" type="button" aria-label="Tìm kiếm"><Search size={20} /></button>
           <button className="icon-button" type="button" aria-label="Thông báo"><Bell size={20} /></button>
-          <Link className="nav-login" to="/dang-nhap">Đăng nhập</Link>
-          <Link className="nav-register" to="/dang-ky">Đăng ký</Link>
+          <AccountNavActions />
         </div>
       </div>
     </nav>
@@ -199,7 +211,7 @@ function CinemaCard({ cinema }) {
         </p>
         <div className="cinema-card-footer">
           <span>{cinema.distance}</span>
-          <Link to="/chon-suat-chieu">Xem lịch chiếu</Link>
+          <Link to={`/chon-suat-chieu?cinemaId=${cinema.id}`}>Xem lịch chiếu</Link>
         </div>
       </div>
     </article>
@@ -247,6 +259,19 @@ function FooterColumn({ title, links }) {
       </ul>
     </section>
   );
+}
+
+function mapCinemaItem(cinema) {
+  return {
+    id: cinema.id,
+    name: cinema.name,
+    city: cinema.city || "Hồ Chí Minh",
+    address: cinema.address || "Đang cập nhật địa chỉ",
+    distance: cinema.phone || "Xem lịch chiếu",
+    rating: "4.8",
+    tags: ["CineVe"],
+    image: "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?auto=format&fit=crop&w=900&q=85"
+  };
 }
 
 export default CinemasPage;

@@ -1,6 +1,10 @@
-import { useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import { Bell, CalendarDays, ChevronLeft, ChevronRight, Search, SlidersHorizontal, Star, Ticket, Timer } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useEffect } from "react";
+import { movieApi } from "../api/clientApi";
+import AccountNavActions from "../components/common/AccountNavActions.jsx";
+import { assetUrl, formatDate } from "../utils/format";
 
 const movies = [
   {
@@ -89,6 +93,7 @@ const ageRatings = ["Độ tuổi", "P", "T13", "T16", "T18"];
 
 function MoviesPage() {
   const [tab, setTab] = useState("now");
+  const [movieItems, setMovieItems] = useState(movies);
   const [filters, setFilters] = useState({
     keyword: "",
     genre: "Tất cả thể loại",
@@ -96,8 +101,18 @@ function MoviesPage() {
     age: "Độ tuổi"
   });
 
+  useEffect(() => {
+    movieApi.list()
+      .then((result) => {
+        if (result?.length) {
+          setMovieItems(result.map(mapMovieItem));
+        }
+      })
+      .catch(() => setMovieItems(movies));
+  }, []);
+
   const filteredMovies = useMemo(() => {
-    return movies.filter((movie) => {
+    return movieItems.filter((movie) => {
       const matchTab = movie.status === tab;
       const matchKeyword = movie.title.toLowerCase().includes(filters.keyword.trim().toLowerCase());
       const matchGenre = filters.genre === "Tất cả thể loại" || movie.genres.includes(filters.genre);
@@ -106,7 +121,7 @@ function MoviesPage() {
 
       return matchTab && matchKeyword && matchGenre && matchLanguage && matchAge;
     });
-  }, [filters, tab]);
+  }, [filters, movieItems, tab]);
 
   const updateFilter = (key, value) => {
     setFilters((current) => ({ ...current, [key]: value }));
@@ -184,7 +199,6 @@ function MoviesPage() {
           </button>
         </div>
       </main>
-      <MoviesFooter />
     </div>
   );
 }
@@ -204,8 +218,7 @@ function MoviesNavbar() {
         <div className="home-nav-actions">
           <button className="icon-button" type="button" aria-label="Tìm kiếm"><Search size={20} /></button>
           <button className="icon-button" type="button" aria-label="Thông báo"><Bell size={20} /></button>
-          <Link className="nav-login" to="/dang-nhap">Đăng nhập</Link>
-          <Link className="nav-register" to="/dang-ky">Đăng ký</Link>
+          <AccountNavActions />
         </div>
       </div>
     </nav>
@@ -294,6 +307,22 @@ function FooterColumn({ title, links }) {
       </ul>
     </div>
   );
+}
+
+function mapMovieItem(movie) {
+  return {
+    title: movie.title,
+    id: movie.id,
+    genres: (movie.genres || []).map((genre) => genre.name).join(", ") || "Đang cập nhật",
+    duration: `${movie.durationMinutes || "--"} phút`,
+    releaseDate: formatDate(movie.releaseDate),
+    rating: movie.ageRating || "P",
+    age: movie.ageRating || "P",
+    status: movie.status === "COMING_SOON" ? "soon" : "now",
+    tags: movie.status === "NOW_SHOWING" ? ["HOT"] : [],
+    language: movie.language || "Tiếng Việt",
+    image: assetUrl(movie.posterUrl)
+  };
 }
 
 export default MoviesPage;

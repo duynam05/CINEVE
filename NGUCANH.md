@@ -2003,7 +2003,7 @@ Luồng test API thủ công gợi ý:
 
 ## Tiến độ hiện tại theo AGENT.md mới
 
-Cập nhật lần cuối: 13/06/2026 sau khi hoàn thành Giai đoạn 9 - Đánh giá phim, phim yêu thích và thông báo.
+Cập nhật lần cuối: 15/06/2026 sau khi test API thông báo và luồng đặt vé với MySQL local.
 
 Cập nhật đến hiện tại:
 
@@ -2141,6 +2141,405 @@ GET http://localhost:8080/api/notifications/my
 Authorization: Bearer <user_token>
 ```
 
+## Cập nhật tiến độ frontend ngày 17/06/2026
+
+Trạng thái mới nhất:
+
+- Backend vẫn giữ trạng thái đã hoàn thành đến Giai đoạn 10: Dashboard Admin.
+- Đã bắt đầu Giai đoạn 11: Frontend người dùng.
+- Frontend user hiện nằm tại `D:\cinema\Frontend\CineVe-user`.
+- Frontend admin hiện nằm tại `D:\cinema\Frontend\CineVe-admin`.
+
+Yêu cầu quan trọng khi làm frontend từ thời điểm này:
+
+- Dự án đã có sẵn giao diện tĩnh React cho user và admin.
+- Khi kết nối API, phải giữ nguyên UI hiện tại nhiều nhất có thể.
+- Không tự ý thiết kế lại component.
+- Không đổi màu sắc, spacing, font, layout, sidebar, topbar, footer hoặc class CSS nếu không cần.
+- Chỉ thêm logic: state, gọi API, xử lý submit/click, loading, toast, điều hướng và validate.
+- Nếu cần thêm file API service hoặc protected route thì được phép, nhưng không được làm thay đổi giao diện.
+
+Việc đã làm ở frontend user:
+
+- Đã tạo API layer dùng Axios:
+  - `src/api/clientApi.js`
+  - `src/api/httpClient.js`
+  - `src/api/authApi.js`
+- Axios hiện mặc định gọi backend tại:
+
+```text
+http://localhost:8080
+```
+
+- Token JWT được lấy từ `localStorage` key `cineve_access_token` và gắn vào header:
+
+```text
+Authorization: Bearer <token>
+```
+
+- Đã cập nhật `AuthContext` để:
+  - Lưu token, refresh token và user vào `localStorage`.
+  - Khôi phục user bằng `GET /api/auth/me` khi reload trang nếu còn token.
+  - Xóa token khi đăng xuất hoặc token không hợp lệ.
+
+- Đã sửa lỗi form đăng nhập/đăng ký trong `AuthPage.jsx`:
+  - Component `Field` đã dùng `forwardRef`.
+  - `react-hook-form` hiện nhận đúng giá trị input Email và mật khẩu.
+
+- Đã kết nối authentication:
+  - `POST /api/auth/login`
+  - `POST /api/auth/register`
+  - `GET /api/auth/me`
+  - `PUT /api/auth/change-password`
+  - `POST /api/auth/verify-email`
+  - `POST /api/auth/resend-verification`
+  - `POST /api/auth/forgot-password`
+  - `POST /api/auth/reset-password`
+
+- Đã thêm route phụ cho auth:
+
+```text
+/xac-thuc-email
+/quen-mat-khau
+```
+
+- Đã thêm `ProtectedRoute` để chặn các trang user cần đăng nhập:
+  - `/chon-ghe`
+  - `/thanh-toan`
+  - `/dat-ve-thanh-cong`
+  - `/ve-cua-toi`
+  - `/thong-tin-ca-nhan`
+
+Lưu ý quan trọng về UI:
+
+- Trước đó đã có một lần nối API bằng cách viết lại nhiều page, làm giao diện user khác bản tĩnh ban đầu.
+- Sau đó đã khôi phục lại các page user lớn và `styles.css` về giao diện tĩnh gốc từ Git.
+- Từ thời điểm cập nhật này, mọi kết nối API phải theo hướng:
+  - Giữ nguyên JSX/class/layout hiện tại.
+  - Chỉ thay nguồn dữ liệu mock bằng dữ liệu API.
+  - Map response backend về đúng shape dữ liệu cũ để UI không đổi.
+
+Các màn hình user đã được nối API theo hướng giữ UI cũ:
+
+- Trang chủ:
+  - Lấy phim đang chiếu từ `GET /api/movies/now-showing`.
+  - Lấy phim sắp chiếu từ `GET /api/movies/coming-soon`.
+  - Lấy rạp từ `GET /api/cinemas`.
+  - Nếu API lỗi hoặc chưa có dữ liệu thì giữ fallback mock cũ.
+
+- Trang danh sách phim:
+  - Lấy phim từ `GET /api/movies`.
+  - Map dữ liệu backend về shape card tĩnh cũ: `title`, `genres`, `duration`, `releaseDate`, `rating`, `age`, `status`, `tags`, `language`, `image`.
+  - Filter UI cũ vẫn giữ nguyên.
+  - Nếu API lỗi thì giữ dữ liệu mock cũ.
+
+- Trang chi tiết phim:
+  - Lấy chi tiết phim từ `GET /api/movies/{id}`.
+  - Lấy đánh giá từ `GET /api/movies/{id}/reviews`.
+  - Lấy suất chiếu từ `GET /api/movies/{id}/showtimes`.
+  - Map dữ liệu backend về shape UI cũ.
+  - Giữ nguyên layout `detail-hero`, `booking-panel`, `reviews-section`.
+  - Nút đặt vé chuyển đến `/chon-ghe?showtimeId=...` nếu đã có suất chiếu từ backend, nếu chưa thì chuyển qua `/chon-suat-chieu?movieId=...`.
+
+- Trang danh sách rạp:
+  - Lấy rạp từ `GET /api/cinemas`.
+  - Map dữ liệu backend về shape card rạp tĩnh cũ.
+  - Giữ nguyên filter theo thành phố và ô tìm kiếm.
+  - Nếu API lỗi thì giữ dữ liệu mock cũ.
+  - Link xem lịch chiếu chuyển đến `/chon-suat-chieu?cinemaId=...`.
+
+Các file frontend user đã sửa/tạo chính:
+
+File tạo:
+
+- `src/api/clientApi.js`
+- `src/components/common/ProtectedRoute.jsx`
+- `src/components/common/LoadingState.jsx`
+- `src/pages/VerifyEmailPage.jsx`
+- `src/pages/ForgotPasswordPage.jsx`
+- `src/utils/format.js`
+
+File sửa:
+
+- `src/App.jsx`
+- `src/api/httpClient.js`
+- `src/api/authApi.js`
+- `src/context/AuthContext.jsx`
+- `src/pages/AuthPage.jsx`
+- `src/pages/HomePage.jsx`
+- `src/pages/MoviesPage.jsx`
+- `src/pages/MovieDetailPage.jsx`
+- `src/pages/CinemasPage.jsx`
+
+Kết quả build frontend user gần nhất:
+
+```bash
+npm.cmd run build
+```
+
+Kết quả:
+
+- Build pass.
+- CSS bundle quay lại theo giao diện tĩnh gốc, xác nhận `styles.css` đã được khôi phục.
+
+Dev server frontend user:
+
+```text
+http://localhost:5173
+```
+
+Backend cần chạy:
+
+```text
+http://localhost:8080
+```
+
+Các phần user frontend chưa nối xong theo hướng giữ UI cũ:
+
+- Trang chọn suất chiếu:
+  - Cần nối `GET /api/showtimes`, `GET /api/movies/{movieId}/showtimes`, `GET /api/cinemas/{cinemaId}/showtimes`.
+  - Phải giữ nguyên UI chọn phim/rạp/ngày/suất chiếu hiện tại.
+
+- Trang chọn ghế:
+  - Cần nối `GET /api/showtimes/{showtimeId}/seats`.
+  - Phải giữ nguyên sơ đồ ghế hiện tại.
+  - Chỉ thay trạng thái ghế/tính tiền bằng dữ liệu backend.
+
+- Trang thanh toán:
+  - Cần nối `POST /api/coupons/apply`.
+  - Cần tạo booking bằng `POST /api/bookings`.
+  - Phải giữ nguyên UI thanh toán hiện tại.
+
+- Trang đặt vé thành công:
+  - Cần hiển thị booking/ticket thật sau khi `POST /api/bookings` thành công.
+  - Giữ nguyên UI thành công hiện tại.
+
+- Trang vé của tôi:
+  - Cần nối `GET /api/bookings/my`.
+  - Cần nối `GET /api/bookings/{id}` và `GET /api/bookings/{id}/ticket` nếu UI có xem chi tiết.
+  - Cần nối `PUT /api/bookings/{id}/cancel`.
+  - Phải giữ nguyên card vé hiện tại.
+
+- Trang hồ sơ cá nhân:
+  - Cần nối `GET /api/users/me`.
+  - Cần nối `PUT /api/users/me`.
+  - Cần nối đổi mật khẩu bằng `PUT /api/auth/change-password`.
+  - Giữ nguyên UI hồ sơ hiện tại.
+
+- Phim yêu thích và thông báo:
+  - Backend đã có API favorite/notification.
+  - Frontend user hiện chưa hoàn thiện theo UI tĩnh gốc vì bản UI ban đầu chưa có page riêng rõ ràng cho các phần này.
+  - Nếu thêm page mới thì phải dùng style hiện có và không làm lệch theme.
+
+Trạng thái frontend admin:
+
+- Frontend admin đã có giao diện tĩnh tại `D:\cinema\Frontend\CineVe-admin`.
+- Chưa kết nối API admin theo hướng giữ nguyên UI.
+- Khi làm Giai đoạn 12, phải nối từng module vào UI admin hiện có, không đổi sidebar/topbar/table/form/modal.
+
+Các module admin cần nối tiếp:
+
+- Dashboard:
+  - `GET /api/admin/dashboard/summary`
+  - `GET /api/admin/dashboard/revenue-by-day`
+  - `GET /api/admin/dashboard/revenue-by-month`
+  - `GET /api/admin/dashboard/top-movies`
+  - `GET /api/admin/dashboard/booking-status`
+  - `GET /api/admin/dashboard/payment-methods`
+
+- Quản lý phim, thể loại, rạp, phòng, ghế, suất chiếu.
+- Quản lý booking, payment, ticket.
+- Quản lý đồ ăn/combo, mã giảm giá.
+- Quản lý đánh giá.
+- Quản lý người dùng nếu đã có giao diện.
+
+Ghi chú kỹ thuật:
+
+- Không sửa backend trong task kết nối frontend, trừ khi phát hiện contract API thật sự thiếu hoặc sai.
+- Response backend đang theo format:
+
+```json
+{
+  "code": 1000,
+  "message": "...",
+  "result": {}
+}
+```
+
+- Frontend cần đọc dữ liệu từ `response.data.result`.
+- Nếu backend lỗi, hiển thị toast/thông báo tiếng Việt và không làm trắng màn hình.
+
+## Cập nhật tiến độ hiện tại ngày 16/06/2026
+
+Trạng thái mới nhất của dự án:
+
+- Đã hoàn thành Giai đoạn 1: Setup nền tảng backend.
+- Đã hoàn thành Giai đoạn 2: Authentication và phân quyền.
+- Đã hoàn thành Giai đoạn 3: Quản lý người dùng.
+- Đã hoàn thành Giai đoạn 4: Quản lý phim và thể loại phim.
+- Đã hoàn thành Giai đoạn 5: Quản lý rạp, phòng chiếu và ghế.
+- Đã hoàn thành Giai đoạn 6: Quản lý suất chiếu.
+- Đã hoàn thành Giai đoạn 7: Đồ ăn, nước uống và mã giảm giá.
+- Đã hoàn thành Giai đoạn 8: Đặt vé, thanh toán và vé.
+- Đã hoàn thành Giai đoạn 9: Đánh giá phim, phim yêu thích và thông báo.
+- Đã hoàn thành Giai đoạn 10: Dashboard Admin.
+
+Giai đoạn tiếp theo cần làm:
+
+- Giai đoạn 11: Frontend người dùng.
+- Sau đó là Giai đoạn 12: Frontend Admin.
+- Cuối cùng là Giai đoạn 13: Hoàn thiện, dữ liệu mẫu và deploy.
+
+Backend hiện tại:
+
+- Project backend nằm tại `D:\cinema\cinema`.
+- Package chính: `com.duynam.cinema`.
+- Database: MySQL, database name `cineve`.
+- Test backend bằng command:
+
+```bash
+mvn.cmd test -q
+```
+
+Kết quả test gần nhất:
+
+- `mvn.cmd test -q` đã pass ngày 16/06/2026 sau khi hoàn thành Dashboard Admin.
+- Spring Boot context start được với H2.
+- JPA repository scan được 21 repository.
+- Các bean dashboard, controller, service và query repository load được.
+
+API Dashboard Admin mới nhất:
+
+```text
+GET /api/admin/dashboard/summary
+GET /api/admin/dashboard/revenue-by-day
+GET /api/admin/dashboard/revenue-by-month
+GET /api/admin/dashboard/top-movies
+GET /api/admin/dashboard/booking-status
+GET /api/admin/dashboard/payment-methods
+```
+
+Các API dashboard cần:
+
+```text
+Authorization: Bearer <admin_token>
+```
+
+File chính đã thêm/sửa cho Giai đoạn 10:
+
+- `src/main/java/com/duynam/cinema/controller/AdminDashboardController.java`
+- `src/main/java/com/duynam/cinema/service/DashboardService.java`
+- `src/main/java/com/duynam/cinema/dto/response/DashboardSummaryResponse.java`
+- `src/main/java/com/duynam/cinema/dto/response/RevenueByDayResponse.java`
+- `src/main/java/com/duynam/cinema/dto/response/RevenueByMonthResponse.java`
+- `src/main/java/com/duynam/cinema/dto/response/TopMovieDashboardResponse.java`
+- `src/main/java/com/duynam/cinema/dto/response/BookingStatusDashboardResponse.java`
+- `src/main/java/com/duynam/cinema/dto/response/PaymentMethodDashboardResponse.java`
+- `src/main/java/com/duynam/cinema/repository/BookingRepository.java`
+- `src/main/java/com/duynam/cinema/repository/BookingSeatRepository.java`
+- `src/main/java/com/duynam/cinema/repository/PaymentRepository.java`
+- `src/main/java/com/duynam/cinema/repository/TicketRepository.java`
+
+Ghi chú kỹ thuật:
+
+- Doanh thu dashboard đang tính từ `PaymentStatus.SUCCESS`.
+- Vé đã bán đang tính từ ticket trạng thái `ACTIVE` hoặc `USED`.
+- Top phim bán chạy đang tính theo số ghế đã bán trong các booking `CONFIRMED` hoặc `COMPLETED`.
+- `Notification.java` hiện đã map field `read` sang column `is_read`, tránh lỗi MySQL do column `read`.
+
+## Giai đoạn 10 đã hoàn thành
+
+Đã triển khai backend module Dashboard Admin:
+
+- Tạo API tổng quan dashboard cho admin.
+- Tính tổng số người dùng, phim, rạp, phòng chiếu, suất chiếu, booking.
+- Tính tổng số vé đã bán dựa trên ticket trạng thái `ACTIVE` hoặc `USED`.
+- Tính tổng doanh thu, doanh thu hôm nay, doanh thu tháng này dựa trên payment trạng thái `SUCCESS`.
+- Tính số booking bị hủy.
+- Tạo thống kê doanh thu theo ngày.
+- Tạo thống kê doanh thu theo tháng.
+- Tạo thống kê top phim bán chạy theo số ghế đã bán.
+- Tạo thống kê tỷ lệ booking theo trạng thái.
+- Tạo thống kê tỷ lệ thanh toán theo phương thức.
+
+## API Dashboard Admin đã có
+
+Các API này cần header:
+
+```text
+Authorization: Bearer <admin_token>
+```
+
+Danh sách endpoint:
+
+```text
+GET /api/admin/dashboard/summary
+GET /api/admin/dashboard/revenue-by-day
+GET /api/admin/dashboard/revenue-by-month
+GET /api/admin/dashboard/top-movies
+GET /api/admin/dashboard/booking-status
+GET /api/admin/dashboard/payment-methods
+```
+
+Query param tùy chọn:
+
+```text
+GET /api/admin/dashboard/revenue-by-day?fromDate=2026-06-01&toDate=2026-06-16
+GET /api/admin/dashboard/revenue-by-month?fromDate=2026-01-01&toDate=2026-06-16
+GET /api/admin/dashboard/top-movies?limit=10
+```
+
+Mặc định:
+
+- `revenue-by-day` trả doanh thu 30 ngày gần nhất nếu không truyền ngày.
+- `revenue-by-month` trả doanh thu 12 tháng gần nhất nếu không truyền ngày.
+- `top-movies` trả 5 phim bán chạy nhất nếu không truyền `limit`.
+
+## File đã tạo/sửa ở giai đoạn 10
+
+File thêm:
+
+- `src/main/java/com/duynam/cinema/controller/AdminDashboardController.java`
+- `src/main/java/com/duynam/cinema/service/DashboardService.java`
+- `src/main/java/com/duynam/cinema/dto/response/DashboardSummaryResponse.java`
+- `src/main/java/com/duynam/cinema/dto/response/RevenueByDayResponse.java`
+- `src/main/java/com/duynam/cinema/dto/response/RevenueByMonthResponse.java`
+- `src/main/java/com/duynam/cinema/dto/response/TopMovieDashboardResponse.java`
+- `src/main/java/com/duynam/cinema/dto/response/BookingStatusDashboardResponse.java`
+- `src/main/java/com/duynam/cinema/dto/response/PaymentMethodDashboardResponse.java`
+
+File sửa:
+
+- `src/main/java/com/duynam/cinema/repository/BookingRepository.java`
+- `src/main/java/com/duynam/cinema/repository/BookingSeatRepository.java`
+- `src/main/java/com/duynam/cinema/repository/PaymentRepository.java`
+- `src/main/java/com/duynam/cinema/repository/TicketRepository.java`
+- `NGUCANH.md`
+
+## Cách test đã dùng sau khi hoàn thiện giai đoạn 10
+
+Command đã chạy thành công:
+
+```bash
+mvn.cmd test -q
+```
+
+Kết quả:
+
+- Test pass.
+- Spring Boot context start được với H2.
+- JPA repository scan được 21 repository.
+- Các bean dashboard, controller, service và query repository load được.
+
+## Tiến độ hiện tại sau giai đoạn 10
+
+- Đã hoàn thành Giai đoạn 10: Dashboard Admin.
+- Giai đoạn tiếp theo cần làm: Giai đoạn 11 - Frontend người dùng.
+
+## Cập nhật thêm
+
+- `Notification.java` hiện đã map field `read` sang column `is_read`, đúng với hướng xử lý lỗi MySQL đã ghi ở phần notification.
+
 Đánh dấu thông báo đã đọc:
 
 ```http
@@ -2207,3 +2606,38 @@ Kết quả:
 
 - Đã hoàn thành Giai đoạn 9: Đánh giá phim, phim yêu thích và thông báo.
 - Giai đoạn tiếp theo cần làm: Giai đoạn 10 - Dashboard Admin.
+
+## Cập nhật test notification với MySQL local ngày 15/06/2026
+
+Đã test các API liên quan tới notification và phát hiện lỗi nằm ở schema MySQL local, không phải lỗi route/controller:
+
+- `GET /api/notifications/my` ban đầu lỗi vì database `cineve` chưa có bảng `notifications`.
+- Project hiện chưa dùng Flyway/Liquibase/schema.sql; schema đang phụ thuộc vào Hibernate `spring.jpa.hibernate.ddl-auto`.
+- `application.yaml` đang cấu hình mặc định `SPRING_JPA_HIBERNATE_DDL_AUTO:update`, nhưng nếu môi trường local override sang `none` hoặc `validate` thì Hibernate sẽ không tự tạo bảng mới.
+- Đã chạy `mvn.cmd test -q` thành công sau khi Maven được phép tải dependency còn thiếu; Spring Boot context start được với H2 và scan được 21 JPA repository, gồm `NotificationRepository`.
+- Sau khi tạo bảng `notifications`, luồng đặt vé phát sinh lỗi insert notification vì column tên `read` trùng keyword/cú pháp nhạy cảm của MySQL. Hibernate sinh SQL `insert into notifications (..., read, ...)` không bọc backtick nên MySQL báo syntax error.
+
+Hướng xử lý cần làm tiếp:
+
+- Đổi mapping trong `Notification.java` từ column mặc định `read` sang column an toàn hơn, ví dụ `is_read`:
+
+```java
+@Builder.Default
+@Column(name = "is_read", nullable = false)
+Boolean read = false;
+```
+
+- Cập nhật bảng MySQL local nếu bảng đã tồn tại:
+
+```sql
+ALTER TABLE notifications
+CHANGE COLUMN `read` is_read bit NOT NULL;
+```
+
+- Nếu chưa có dữ liệu quan trọng, có thể drop bảng `notifications`, restart backend với `SPRING_JPA_HIBERNATE_DDL_AUTO=update` để Hibernate tạo lại schema theo entity mới.
+- Sau khi sửa column, test lại luồng đặt vé để xác nhận booking tạo notification thành công, rồi test lại:
+
+```http
+GET http://localhost:8080/api/notifications/my
+Authorization: Bearer <user_token>
+```

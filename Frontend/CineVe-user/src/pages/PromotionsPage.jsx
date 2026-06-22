@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Bell, ChevronRight, CreditCard, FastForward, Gift, Mail, MessageCircle, Phone, Play, Search, Star, Ticket, Trophy, Utensils } from "lucide-react";
 import { Link } from "react-router-dom";
+import AccountNavActions from "../components/common/AccountNavActions.jsx";
 
 const slides = [
   {
@@ -216,7 +217,6 @@ function PromotionsPage() {
           </section>
         </div>
       </main>
-      <PromotionsFooter />
     </div>
   );
 }
@@ -236,8 +236,7 @@ function PromotionsNavbar() {
         <div className="home-nav-actions">
           <button className="icon-button" type="button" aria-label="Tìm kiếm"><Search size={20} /></button>
           <button className="icon-button" type="button" aria-label="Thông báo"><Bell size={20} /></button>
-          <Link className="nav-login" to="/dang-nhap">Đăng nhập</Link>
-          <Link className="nav-register" to="/dang-ky">Đăng ký</Link>
+          <AccountNavActions />
         </div>
       </div>
     </nav>

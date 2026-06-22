@@ -1,6 +1,10 @@
-import { useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { Bell, CirclePlus, Clapperboard, Link as LinkIcon, Mail, QrCode, Search, Share2, Ticket, X } from "lucide-react";
 import { Link } from "react-router-dom";
+import { toast } from "react-toastify";
+import { bookingApi } from "../api/clientApi";
+import AccountNavActions from "../components/common/AccountNavActions.jsx";
+import { fallbackPoster, formatDateTime, getErrorMessage, translateStatus } from "../utils/format";
 
 const tabs = [
   { id: "upcoming", label: "Sắp Xem" },
@@ -8,7 +12,7 @@ const tabs = [
   { id: "cancelled", label: "Đã Hủy" }
 ];
 
-const tickets = [
+const fallbackTickets = [
   {
     id: "CBK-882910",
     tab: "upcoming",
@@ -69,17 +73,44 @@ const tickets = [
 
 function MyTicketsPage() {
   const [activeTab, setActiveTab] = useState("upcoming");
-  const [showCancelToast, setShowCancelToast] = useState(false);
+  const [tickets, setTickets] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [cancelTarget, setCancelTarget] = useState(null);
+
+  const loadTickets = () => {
+    setLoading(true);
+    bookingApi.my()
+      .then((result) => setTickets(mapBookingsToTickets(result || [])))
+      .catch((error) => {
+        setTickets(fallbackTickets);
+        toast.error(getErrorMessage(error, "Không tải được vé của tôi, đang hiển thị dữ liệu mẫu"));
+      })
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(loadTickets, []);
 
   const visibleTickets = useMemo(
     () => tickets.filter((ticket) => ticket.tab === activeTab),
-    [activeTab]
+    [activeTab, tickets]
   );
 
-  const handleCancel = () => {
-    setShowCancelToast(true);
-    window.clearTimeout(window.__cineveCancelToastTimer);
-    window.__cineveCancelToastTimer = window.setTimeout(() => setShowCancelToast(false), 5000);
+  const confirmCancel = async () => {
+    if (!cancelTarget) return;
+    if (!cancelTarget.bookingId) {
+      toast.info("Đây là vé mẫu, chưa thể hủy trên hệ thống");
+      setCancelTarget(null);
+      return;
+    }
+
+    try {
+      await bookingApi.cancel(cancelTarget.bookingId);
+      toast.success("Hủy vé thành công");
+      setCancelTarget(null);
+      loadTickets();
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Không thể hủy vé"));
+    }
   };
 
   return (
@@ -105,8 +136,10 @@ function MyTicketsPage() {
         </div>
 
         <section className="ticket-card-grid">
-          {visibleTickets.map((ticket) => (
-            <TicketCard ticket={ticket} onCancel={handleCancel} key={ticket.id} />
+          {loading && <p className="ticket-empty-text">Đang tải vé của bạn...</p>}
+          {!loading && visibleTickets.length === 0 && <p className="ticket-empty-text">Chưa có vé trong mục này.</p>}
+          {!loading && visibleTickets.map((ticket) => (
+            <TicketCard ticket={ticket} onCancel={() => setCancelTarget(ticket)} key={ticket.id} />
           ))}
           <DiscoverCard />
         </section>
@@ -116,8 +149,7 @@ function MyTicketsPage() {
         </div>
       </main>
 
-      <TicketsFooter />
-      <CancelToast visible={showCancelToast} onClose={() => setShowCancelToast(false)} />
+      <CancelToast visible={Boolean(cancelTarget)} onClose={() => setCancelTarget(null)} onConfirm={confirmCancel} />
     </div>
   );
 }
@@ -137,8 +169,7 @@ function TicketsNavbar() {
         <div className="home-nav-actions">
           <button className="icon-button" type="button" aria-label="Tìm kiếm"><Search size={20} /></button>
           <button className="icon-button" type="button" aria-label="Thông báo"><Bell size={20} /></button>
-          <Link className="nav-login" to="/dang-nhap">Đăng nhập</Link>
-          <Link className="nav-register" to="/dang-ky">Đăng ký</Link>
+          <AccountNavActions />
         </div>
       </div>
     </nav>
@@ -179,7 +210,7 @@ function TicketCard({ ticket, onCancel }) {
         </div>
 
         <div className="ticket-actions-row">
-          <Link className={ticket.active ? "primary" : "secondary"} to="/dat-ve-thanh-cong">
+          <Link className={ticket.active ? "primary" : "secondary"} to={ticket.bookingId ? `/ve-cua-toi/${ticket.bookingId}` : "/dat-ve-thanh-cong"}>
             {ticket.active && <QrCode size={19} />}
             {ticket.active ? "Xem Chi Tiết" : "Xem Lại Vé"}
           </Link>
@@ -220,7 +251,7 @@ function DiscoverCard() {
   );
 }
 
-function CancelToast({ visible, onClose }) {
+function CancelToast({ visible, onClose, onConfirm }) {
   return (
     <div className={`cancel-toast ${visible ? "visible" : ""}`}>
       <Ticket size={24} />
@@ -230,10 +261,36 @@ function CancelToast({ visible, onClose }) {
       </div>
       <div>
         <button type="button" onClick={onClose}>Bỏ qua</button>
-        <button type="button">Đồng ý</button>
+        <button type="button" onClick={onConfirm}>Đồng ý</button>
       </div>
     </div>
   );
+}
+
+function mapBookingsToTickets(bookings) {
+  return bookings.map((booking) => {
+    const showtime = booking.showtime || {};
+    const seatCodes = booking.seats?.map((seat) => seat.code).filter(Boolean).join(", ") || "Đang cập nhật";
+    const isCancelled = booking.status === "CANCELLED" || booking.ticket?.status === "CANCELLED";
+    const isDone = booking.status === "COMPLETED" || booking.ticket?.status === "USED";
+    const tab = isCancelled ? "cancelled" : isDone ? "watched" : "upcoming";
+
+    return {
+      id: booking.code || booking.id,
+      bookingId: booking.id,
+      tab,
+      movie: showtime.movieTitle || "Phim đang cập nhật",
+      cinema: showtime.cinemaName || "Rạp đang cập nhật",
+      time: formatDateTime(showtime.startTime),
+      roomSeat: `${showtime.roomName || "Phòng chiếu"} • ${seatCodes}`,
+      status: translateStatus(booking.ticket?.status || booking.status),
+      statusTone: isCancelled ? "cancelled" : isDone ? "done" : "success",
+      badge: isCancelled ? "ĐÃ HỦY" : isDone ? "ĐÃ XEM" : "SẮP CHIẾU",
+      format: showtime.roomType || "2D",
+      active: tab === "upcoming",
+      image: fallbackPoster
+    };
+  });
 }
 
 function TicketsFooter() {

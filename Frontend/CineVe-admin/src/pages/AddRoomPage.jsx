@@ -16,6 +16,10 @@ import {
   ZoomIn
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { toast } from "react-toastify";
+import { adminCinemaApi, adminRoomApi } from "../api/adminApi";
+import { getErrorMessage } from "../api/axiosClient";
+import { asArray } from "../api/formatters";
 
 const adminAvatar =
   "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=240&q=85";
@@ -24,6 +28,13 @@ const rows = "ABCDEFGHIJ".split("");
 
 function AddRoomPage() {
   const [selectedSeats, setSelectedSeats] = useState(["C5"]);
+  const [cinemas, setCinemas] = useState([]);
+
+  React.useEffect(() => {
+    adminCinemaApi.list()
+      .then((data) => setCinemas(asArray(data)))
+      .catch((error) => toast.error(getErrorMessage(error)));
+  }, []);
 
   const seats = useMemo(
     () =>
@@ -46,14 +57,35 @@ function AddRoomPage() {
     );
   };
 
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const totalSeats = Number(formData.get("totalSeats") || 120);
+    const rowCount = 10;
+    const columnCount = Math.max(1, Math.ceil(totalSeats / rowCount));
+    const screenType = formData.get("type") || "TWO_D";
+
+    try {
+      await adminRoomApi.create({
+        cinemaId: formData.get("cinemaId") || cinemas[0]?.id || "",
+        name: formData.get("name") || "",
+        rowCount,
+        columnCount,
+        type: screenType,
+        status: "ACTIVE"
+      });
+      toast.success("Thao tác thành công");
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  };
+
   return (
     <div className="admin-shell">
-      <AddRoomSidebar />
       <div className="admin-workspace">
-        <AddRoomTopbar />
         <main className="add-room-main">
           <section className="add-room-layout">
-            <form className="add-room-form" onSubmit={(event) => event.preventDefault()}>
+            <form className="add-room-form" onSubmit={handleSubmit}>
               <article className="add-room-card">
                 <h2>
                   <Info size={22} />
@@ -62,20 +94,29 @@ function AddRoomPage() {
                 <div className="add-room-fields">
                   <label className="span-2">
                     <span>Tên phòng chiếu</span>
-                    <input placeholder="Ví dụ: Phòng 01 - Gold Class" />
+                    <input name="name" placeholder="Ví dụ: Phòng 01 - Gold Class" />
+                  </label>
+                  <label className="span-2">
+                    <span>Rạp chiếu</span>
+                    <select name="cinemaId" defaultValue="">
+                      <option value="" disabled>Chọn rạp chiếu</option>
+                      {cinemas.map((cinema) => (
+                        <option value={cinema.id} key={cinema.id}>{cinema.name}</option>
+                      ))}
+                    </select>
                   </label>
                   <label>
                     <span>Loại màn hình</span>
-                    <select defaultValue="2D">
-                      <option value="2D">Định dạng 2D</option>
-                      <option value="3D">Định dạng 3D</option>
+                    <select name="type" defaultValue="TWO_D">
+                      <option value="TWO_D">Định dạng 2D</option>
+                      <option value="THREE_D">Định dạng 3D</option>
                       <option value="IMAX">IMAX Laser</option>
-                      <option value="ScreenX">ScreenX</option>
+                      <option value="VIP">VIP</option>
                     </select>
                   </label>
                   <label>
                     <span>Tổng số ghế</span>
-                    <input type="number" defaultValue="120" />
+                    <input name="totalSeats" type="number" defaultValue="120" />
                   </label>
                   <fieldset className="span-2 room-sound-field">
                     <legend>Hệ thống âm thanh</legend>

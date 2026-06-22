@@ -1,14 +1,12 @@
-import { useState } from "react";
+﻿import { useEffect, useState } from "react";
 import {
   Bell,
-  ChevronDown,
   Crown,
   Edit3,
   Eye,
   EyeOff,
   Gift,
   History,
-  LogOut,
   Save,
   Search,
   ShieldCheck,
@@ -19,6 +17,10 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
+import { authApi, userApi } from "../api/clientApi";
+import AccountNavActions from "../components/common/AccountNavActions.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
+import { assetUrl, getErrorMessage } from "../utils/format";
 
 const initialProfile = {
   fullName: "Nguyễn Thế Vinh",
@@ -27,6 +29,9 @@ const initialProfile = {
   birthday: "1998-08-18"
 };
 
+const defaultAvatar =
+  "https://ui-avatars.com/api/?name=CineVe&background=e50914&color=ffffff&bold=true";
+
 const benefits = [
   "Giảm 20% bắp nước cho mọi suất chiếu",
   "Nâng cấp ghế VIP miễn phí 2 lần mỗi tháng",
@@ -34,7 +39,11 @@ const benefits = [
 ];
 
 function ProfilePage() {
+  const { user, updateUser } = useAuth();
   const [profile, setProfile] = useState(initialProfile);
+  const [savedProfile, setSavedProfile] = useState(initialProfile);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
   const [passwords, setPasswords] = useState({
     current: "",
     next: "",
@@ -46,6 +55,39 @@ function ProfilePage() {
     confirm: false
   });
 
+  useEffect(() => {
+    let ignore = false;
+
+    const applyUser = (currentUser) => {
+      const nextProfile = {
+        ...initialProfile,
+        fullName: currentUser?.fullName || currentUser?.name || initialProfile.fullName,
+        email: currentUser?.email || initialProfile.email,
+        phone: currentUser?.phone || initialProfile.phone
+      };
+      setProfile(nextProfile);
+      setSavedProfile(nextProfile);
+    };
+
+    if (user) {
+      applyUser(user);
+    }
+
+    userApi.me()
+      .then((currentUser) => {
+        if (!ignore) applyUser(currentUser);
+      })
+      .catch((error) => {
+        if (!ignore && !user) {
+          toast.error(getErrorMessage(error, "Không tải được thông tin cá nhân"));
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [user]);
+
   const updateProfile = (field, value) => {
     setProfile((current) => ({ ...current, [field]: value }));
   };
@@ -54,12 +96,33 @@ function ProfilePage() {
     setPasswords((current) => ({ ...current, [field]: value }));
   };
 
-  const handleProfileSubmit = (event) => {
+  const handleProfileSubmit = async (event) => {
     event.preventDefault();
-    toast.success("Đã lưu thông tin cá nhân");
+    setSavingProfile(true);
+
+    try {
+      const updated = await userApi.updateMe({
+        fullName: profile.fullName,
+        phone: profile.phone?.replace(/\s/g, "") || ""
+      });
+      const nextProfile = {
+        ...profile,
+        fullName: updated.fullName || profile.fullName,
+        email: updated.email || profile.email,
+        phone: updated.phone || profile.phone
+      };
+      setProfile(nextProfile);
+      setSavedProfile(nextProfile);
+      updateUser(updated);
+      toast.success("Đã lưu thông tin cá nhân");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Không thể lưu thông tin cá nhân"));
+    } finally {
+      setSavingProfile(false);
+    }
   };
 
-  const handlePasswordSubmit = (event) => {
+  const handlePasswordSubmit = async (event) => {
     event.preventDefault();
     if (!passwords.current || !passwords.next || !passwords.confirm) {
       toast.error("Vui lòng nhập đầy đủ thông tin mật khẩu");
@@ -71,8 +134,20 @@ function ProfilePage() {
       return;
     }
 
-    setPasswords({ current: "", next: "", confirm: "" });
-    toast.success("Đã cập nhật mật khẩu");
+    setSavingPassword(true);
+
+    try {
+      await authApi.changePassword({
+        currentPassword: passwords.current,
+        newPassword: passwords.next
+      });
+      setPasswords({ current: "", next: "", confirm: "" });
+      toast.success("Đã cập nhật mật khẩu");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Không thể cập nhật mật khẩu"));
+    } finally {
+      setSavingPassword(false);
+    }
   };
 
   return (
@@ -85,7 +160,7 @@ function ProfilePage() {
             <div className="profile-avatar-wrap">
               <img
                 className="profile-avatar"
-                src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=360&q=85"
+                src={user?.avatar ? assetUrl(user.avatar) : defaultAvatar}
                 alt="Ảnh đại diện người dùng"
               />
               <button type="button" className="avatar-edit" aria-label="Đổi ảnh đại diện">
@@ -144,7 +219,7 @@ function ProfilePage() {
               </label>
               <label>
                 <span>Email</span>
-                <input type="email" value={profile.email} onChange={(event) => updateProfile("email", event.target.value)} />
+                <input type="email" value={profile.email} disabled readOnly />
               </label>
               <label>
                 <span>Số điện thoại</span>
@@ -157,13 +232,13 @@ function ProfilePage() {
             </div>
 
             <div className="profile-actions">
-              <button type="button" className="secondary-action" onClick={() => setProfile(initialProfile)}>
+              <button type="button" className="secondary-action" onClick={() => setProfile(savedProfile)}>
                 <X size={18} />
                 Hủy thay đổi
               </button>
               <button type="submit" className="primary-action">
                 <Save size={18} />
-                Lưu thông tin
+                {savingProfile ? "Đang lưu..." : "Lưu thông tin"}
               </button>
             </div>
           </form>
@@ -202,7 +277,7 @@ function ProfilePage() {
                 />
                 <button type="submit" className="primary-action">
                   <ShieldCheck size={18} />
-                  Cập nhật mật khẩu
+                  {savingPassword ? "Đang cập nhật..." : "Cập nhật mật khẩu"}
                 </button>
               </form>
 
@@ -240,7 +315,6 @@ function ProfilePage() {
         </section>
       </main>
 
-      <ProfileFooter />
     </div>
   );
 }
@@ -278,27 +352,7 @@ function ProfileNavbar() {
           <button className="icon-button" type="button" aria-label="Thông báo">
             <Bell size={20} />
           </button>
-          <div className="profile-menu">
-            <button type="button" className="profile-menu-trigger">
-              <img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80" alt="Nguyễn Thế Vinh" />
-              <span>Vinh</span>
-              <ChevronDown size={16} />
-            </button>
-            <div className="profile-menu-panel">
-              <Link className="active" to="/thong-tin-ca-nhan">
-                <UserRound size={16} />
-                Thông tin cá nhân
-              </Link>
-              <Link to="/ve-cua-toi">
-                <Ticket size={16} />
-                Vé của tôi
-              </Link>
-              <Link to="/dang-nhap">
-                <LogOut size={16} />
-                Đăng xuất
-              </Link>
-            </div>
-          </div>
+          <AccountNavActions />
         </div>
       </div>
     </nav>

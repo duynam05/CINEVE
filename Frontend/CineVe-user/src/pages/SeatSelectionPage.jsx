@@ -1,6 +1,10 @@
-import { useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { Bell, CalendarDays, ChevronRight, CircleX, Clapperboard, Home, Search, Ticket, Utensils } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { toast } from "react-toastify";
+import { foodApi, showtimeApi } from "../api/clientApi";
+import AccountNavActions from "../components/common/AccountNavActions.jsx";
+import { assetUrl, formatCurrency, formatDateTime, getErrorMessage, translateStatus } from "../utils/format";
 
 const rows = ["A", "B", "C", "D", "E", "F", "G", "H"];
 const vipRows = ["D", "E", "F"];
@@ -28,23 +32,74 @@ const combos = [
 ];
 
 function SeatSelectionPage() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const showtimeId = searchParams.get("showtimeId");
   const [selectedSeats, setSelectedSeats] = useState([]);
+  const [seatMap, setSeatMap] = useState(null);
+  const [showtime, setShowtime] = useState(null);
+  const [comboList, setComboList] = useState(combos);
   const [comboQuantities, setComboQuantities] = useState({ single: 0, couple: 0 });
 
+  useEffect(() => {
+    let ignore = false;
+
+    const loadSeatData = async () => {
+      if (!showtimeId) return;
+
+      try {
+        const [seatMapResult, showtimeResult, foodsResult] = await Promise.all([
+          showtimeApi.seats(showtimeId),
+          showtimeApi.detail(showtimeId),
+          foodApi.list()
+        ]);
+
+        if (ignore) return;
+
+        setSeatMap(seatMapResult);
+        setShowtime(showtimeResult);
+
+        const mappedFoods = mapFoodsToCombos(foodsResult);
+        if (mappedFoods.length > 0) {
+          setComboList(mappedFoods);
+          setComboQuantities(createQuantityMap(mappedFoods));
+        }
+      } catch (error) {
+        if (!ignore) {
+          toast.error(getErrorMessage(error, "Không tải được sơ đồ ghế, đang hiển thị dữ liệu mẫu"));
+        }
+      }
+    };
+
+    loadSeatData();
+
+    return () => {
+      ignore = true;
+    };
+  }, [showtimeId]);
+
+  const seatRows = useMemo(() => buildSeatRows(seatMap), [seatMap]);
+  const seatByCode = useMemo(() => {
+    const entries = seatMap?.seats?.map((seat) => [seat.code, seat]) || [];
+    return new Map(entries);
+  }, [seatMap]);
+
   const ticketTotal = useMemo(
-    () => selectedSeats.reduce((sum, seat) => sum + getSeatPrice(seat), 0),
-    [selectedSeats]
+    () => selectedSeats.reduce((sum, seat) => sum + getSeatPrice(seat, showtime, seatByCode), 0),
+    [selectedSeats, showtime, seatByCode]
   );
 
   const comboTotal = useMemo(
-    () => combos.reduce((sum, combo) => sum + combo.price * comboQuantities[combo.id], 0),
-    [comboQuantities]
+    () => comboList.reduce((sum, combo) => sum + combo.price * (comboQuantities[combo.id] || 0), 0),
+    [comboList, comboQuantities]
   );
 
   const totalPrice = ticketTotal + comboTotal;
 
   const toggleSeat = (seat) => {
-    if (bookedSeats.has(seat)) return;
+    const realSeat = seatByCode.get(seat);
+
+    if (isSeatUnavailable(realSeat, seat)) return;
 
     setSelectedSeats((current) => {
       if (current.includes(seat)) {
@@ -62,8 +117,34 @@ function SeatSelectionPage() {
   const updateCombo = (id, delta) => {
     setComboQuantities((current) => ({
       ...current,
-      [id]: Math.max(0, current[id] + delta)
+      [id]: Math.max(0, (current[id] || 0) + delta)
     }));
+  };
+
+  const goToPayment = () => {
+    if (selectedSeats.length === 0) return;
+
+    const draft = {
+      showtimeId,
+      seatIds: selectedSeats.map((seat) => seatByCode.get(seat)?.id).filter(Boolean),
+      seatCodes: selectedSeats,
+      foods: comboList
+        .filter((combo) => (comboQuantities[combo.id] || 0) > 0)
+        .map((combo) => ({
+          foodId: combo.id,
+          quantity: comboQuantities[combo.id],
+          name: combo.name,
+          price: combo.price
+        })),
+      ticketTotal,
+      comboTotal,
+      totalPrice,
+      showtime,
+      seatMap
+    };
+
+    sessionStorage.setItem("cineve_booking_draft", JSON.stringify(draft));
+    navigate("/thanh-toan");
   };
 
   return (
@@ -78,29 +159,29 @@ function SeatSelectionPage() {
 
           <div className="seat-map-wrap">
             <div className="seat-map">
-              {rows.map((row) => (
-                <div className="seat-row" key={row}>
-                  <span className="row-label">{row}</span>
+              {seatRows.map((row) => (
+                <div className="seat-row" key={row.name}>
+                  <span className="row-label">{row.name}</span>
                   <div className="seat-row-grid">
-                    {createSeats(row).map((seat) => (
+                    {row.seats.map((seat) => (
                       <SeatButton
-                        key={seat}
-                        seat={seat}
-                        selected={selectedSeats.includes(seat)}
-                        booked={bookedSeats.has(seat)}
-                        type={getSeatType(seat)}
-                        onClick={() => toggleSeat(seat)}
+                        key={seat.code}
+                        seat={seat.code}
+                        selected={selectedSeats.includes(seat.code)}
+                        booked={isSeatUnavailable(seat)}
+                        type={getSeatType(seat.code, seat.type)}
+                        onClick={() => toggleSeat(seat.code)}
                       />
                     ))}
                   </div>
-                  <span className="row-label right">{row}</span>
+                  <span className="row-label right">{row.name}</span>
                 </div>
               ))}
             </div>
           </div>
 
           <SeatLegend />
-          <ComboSection quantities={comboQuantities} onChange={updateCombo} />
+          <ComboSection combos={comboList} quantities={comboQuantities} onChange={updateCombo} />
         </section>
 
         <BookingSummary
@@ -108,6 +189,8 @@ function SeatSelectionPage() {
           ticketTotal={ticketTotal}
           comboTotal={comboTotal}
           totalPrice={totalPrice}
+          showtime={showtime}
+          onContinue={goToPayment}
         />
       </main>
       <SeatMobileNav />
@@ -130,8 +213,7 @@ function SeatNavbar() {
         <div className="home-nav-actions">
           <button className="icon-button" type="button" aria-label="Tìm kiếm"><Search size={20} /></button>
           <button className="icon-button" type="button" aria-label="Thông báo"><Bell size={20} /></button>
-          <Link className="nav-login" to="/dang-nhap">Đăng nhập</Link>
-          <Link className="nav-register" to="/dang-ky">Đăng ký</Link>
+          <AccountNavActions />
         </div>
       </div>
     </nav>
@@ -173,7 +255,7 @@ function SeatLegend() {
   );
 }
 
-function ComboSection({ quantities, onChange }) {
+function ComboSection({ combos, quantities, onChange }) {
   return (
     <section className="combo-section">
       <h2>Chọn thêm Combo</h2>
@@ -188,7 +270,7 @@ function ComboSection({ quantities, onChange }) {
             </div>
             <div className="combo-stepper">
               <button type="button" onClick={() => onChange(combo.id, -1)}>-</button>
-              <span>{quantities[combo.id]}</span>
+              <span>{quantities[combo.id] || 0}</span>
               <button type="button" onClick={() => onChange(combo.id, 1)}>+</button>
             </div>
           </article>
@@ -198,25 +280,25 @@ function ComboSection({ quantities, onChange }) {
   );
 }
 
-function BookingSummary({ selectedSeats, ticketTotal, comboTotal, totalPrice }) {
+function BookingSummary({ selectedSeats, ticketTotal, comboTotal, totalPrice, showtime, onContinue }) {
   return (
     <aside className="seat-summary">
       <div className="summary-card">
         <div className="summary-movie">
           <img
-            src="https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=500&q=85"
-            alt="Poster Hành Tinh Cô Độc"
+            src={showtime?.moviePosterUrl ? assetUrl(showtime.moviePosterUrl) : "https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=500&q=85"}
+            alt={showtime?.movieTitle || "Poster Hành Tinh Cô Độc"}
           />
           <div>
-            <span>C18 - Kinh dị</span>
-            <h1>HÀNH TINH CÔ ĐỘC</h1>
-            <p>2D Phụ Đề • 125 phút</p>
+            <span>{showtime?.movieStatus ? translateStatus(showtime.movieStatus) : "C18 - Kinh dị"}</span>
+            <h1>{showtime?.movieTitle || "HÀNH TINH CÔ ĐỘC"}</h1>
+            <p>{showtime?.roomType || "2D"} • {showtime?.roomName || "Phòng chiếu"}</p>
           </div>
         </div>
 
         <div className="summary-details">
-          <SummaryRow icon={<Clapperboard size={20} />} label="Rạp" value="CineVe Hồ Gươm" />
-          <SummaryRow icon={<CalendarDays size={20} />} label="Suất chiếu" value="Hôm nay, 19:30" />
+          <SummaryRow icon={<Clapperboard size={20} />} label="Rạp" value={showtime?.cinemaName || "CineVe Hồ Gươm"} />
+          <SummaryRow icon={<CalendarDays size={20} />} label="Suất chiếu" value={showtime?.startTime ? formatDateTime(showtime.startTime) : "Hôm nay, 19:30"} />
           <div className="summary-row seats">
             <div>
               <Ticket size={20} />
@@ -245,14 +327,16 @@ function BookingSummary({ selectedSeats, ticketTotal, comboTotal, totalPrice }) 
           </div>
         </div>
 
-        <Link
+        <button
           className={`summary-submit summary-link ${selectedSeats.length === 0 ? "disabled" : ""}`}
-          to={selectedSeats.length === 0 ? "#" : "/thanh-toan"}
+          type="button"
+          onClick={onContinue}
+          disabled={selectedSeats.length === 0}
           aria-disabled={selectedSeats.length === 0}
         >
           Tiếp Tục Thanh Toán
           <ChevronRight size={22} />
-        </Link>
+        </button>
         <p>Bằng việc nhấn "Tiếp Tục", bạn đồng ý với Điều khoản của chúng tôi.</p>
       </div>
     </aside>
@@ -302,15 +386,58 @@ function createSeats(row) {
   return Array.from({ length: 10 }, (_, index) => `${row}${index + 1}`);
 }
 
-function getSeatType(seat) {
+function buildSeatRows(seatMap) {
+  if (!seatMap?.seats?.length) {
+    return rows.map((row) => ({
+      name: row,
+      seats: createSeats(row).map((code) => ({
+        id: code,
+        code,
+        type: getSeatType(code).toUpperCase(),
+        seatStatus: "ACTIVE",
+        showtimeSeatStatus: bookedSeats.has(code) ? "BOOKED" : "AVAILABLE"
+      }))
+    }));
+  }
+
+  const rowMap = new Map();
+
+  seatMap.seats.forEach((seat) => {
+    const rowName = seat.rowName || seat.code?.replace(/\d+$/, "") || "";
+    if (!rowMap.has(rowName)) {
+      rowMap.set(rowName, []);
+    }
+    rowMap.get(rowName).push(seat);
+  });
+
+  return Array.from(rowMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([name, seats]) => ({
+      name,
+      seats: seats.sort((a, b) => Number(a.columnNumber || 0) - Number(b.columnNumber || 0))
+    }));
+}
+
+function isSeatUnavailable(seat, fallbackCode) {
+  if (!seat) return bookedSeats.has(fallbackCode);
+  return seat.seatStatus !== "ACTIVE" || seat.showtimeSeatStatus !== "AVAILABLE";
+}
+
+function getSeatType(seat, backendType) {
+  if (backendType === "COUPLE") return "couple";
+  if (backendType === "VIP") return "vip";
   const row = seat[0];
   if (row === coupleRow) return "couple";
   if (vipRows.includes(row)) return "vip";
   return "normal";
 }
 
-function getSeatPrice(seat) {
-  const type = getSeatType(seat);
+function getSeatPrice(seat, showtime, seatByCode) {
+  const backendSeat = seatByCode?.get(seat);
+  const type = getSeatType(seat, backendSeat?.type);
+  if (type === "couple") return Number(showtime?.coupleSeatPrice || couplePrice);
+  if (type === "vip") return Number(showtime?.vipSeatPrice || basePrice + vipSurcharge);
+  if (showtime?.normalSeatPrice) return Number(showtime.normalSeatPrice);
   if (type === "couple") return couplePrice;
   if (type === "vip") return basePrice + vipSurcharge;
   return basePrice;
@@ -322,11 +449,20 @@ function sortSeatCode(a, b) {
   return Number(a.slice(1)) - Number(b.slice(1));
 }
 
-function formatCurrency(value) {
-  return new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND"
-  }).format(value);
+function mapFoodsToCombos(foods = []) {
+  return foods
+    .filter((food) => food?.active !== false)
+    .map((food) => ({
+      id: food.id,
+      name: food.name,
+      description: food.description || translateStatus(food.type),
+      price: Number(food.price || 0),
+      image: assetUrl(food.imageUrl)
+    }));
+}
+
+function createQuantityMap(items) {
+  return items.reduce((result, item) => ({ ...result, [item.id]: 0 }), {});
 }
 
 export default SeatSelectionPage;

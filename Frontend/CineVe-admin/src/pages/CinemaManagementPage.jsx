@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Bell,
   Building2,
@@ -22,60 +22,55 @@ import {
   Wrench
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { toast } from "react-toastify";
+import { adminCinemaApi } from "../api/adminApi";
+import { getErrorMessage } from "../api/axiosClient";
+import { asArray } from "../api/formatters";
 
 const adminAvatar =
   "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=240&q=85";
 
-const cinemas = [
-  {
-    code: "C1",
-    name: "CineVe Quận 1",
-    city: "Hồ Chí Minh",
-    address: "123 Lê Lợi, Phường Bến Thành, Quận 1",
-    phone: "028 3823 4567",
-    status: "Đang hoạt động",
-    tone: "active"
-  },
-  {
-    code: "H1",
-    name: "CineVe Hoàn Kiếm",
-    city: "Hà Nội",
-    address: "45 Đinh Tiên Hoàng, Quận Hoàn Kiếm",
-    phone: "024 3942 8888",
-    status: "Đang hoạt động",
-    tone: "active"
-  },
-  {
-    code: "D1",
-    name: "CineVe Hải Châu",
-    city: "Đà Nẵng",
-    address: "99 Bạch Đằng, Quận Hải Châu",
-    phone: "023 6388 9999",
-    status: "Bảo trì",
-    tone: "maintenance"
-  },
-  {
-    code: "C2",
-    name: "CineVe Ninh Kiều",
-    city: "Cần Thơ",
-    address: "01 Đại Lộ Hòa Bình, Quận Ninh Kiều",
-    phone: "029 2381 2222",
-    status: "Đang hoạt động",
-    tone: "active"
-  }
-];
-
 function CinemaManagementPage() {
+  const [cinemas, setCinemas] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadCinemas = async () => {
+    try {
+      setLoading(true);
+      const data = await adminCinemaApi.list();
+      setCinemas(asArray(data).map(mapCinema));
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+      setCinemas([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCinemas();
+  }, []);
+
+  const cityCount = useMemo(() => new Set(cinemas.map((cinema) => cinema.city).filter(Boolean)).size, [cinemas]);
+
+  const handleDelete = async (cinema) => {
+    try {
+      await adminCinemaApi.remove(cinema.id);
+      toast.success("Thao tác thành công");
+      loadCinemas();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  };
+
   return (
     <div className="admin-shell">
-      <CinemaSidebar />
       <div className="admin-workspace">
-        <CinemaTopbar />
         <main className="cinema-admin-main">
           <section className="cinema-heading">
             <div>
               <h1>Quản lý rạp</h1>
-              <p>Hệ thống chi nhánh và cụm rạp toàn quốc</p>
+              <p>{loading ? "Đang tải dữ liệu..." : "Hệ thống chi nhánh và cụm rạp toàn quốc"}</p>
             </div>
             <Link to="/cinemas/new" className="add-cinema-button">
               <PlusCircle size={20} />
@@ -84,22 +79,22 @@ function CinemaManagementPage() {
           </section>
 
           <section className="cinema-stat-grid">
-            <CinemaStat icon={CheckCircle2} label="Rạp đang hoạt động" value="22" tone="red" />
-            <CinemaStat icon={Building2} label="Thành phố" value="08" tone="gold" />
-            <CinemaStat icon={Wrench} label="Đang bảo trì" value="02" tone="danger" />
+            <CinemaStat icon={CheckCircle2} label="Rạp đang hoạt động" value={cinemas.filter((cinema) => cinema.tone === "active").length} tone="red" />
+            <CinemaStat icon={Building2} label="Thành phố" value={cityCount} tone="gold" />
+            <CinemaStat icon={Wrench} label="Đang bảo trì" value={cinemas.filter((cinema) => cinema.tone === "maintenance").length} tone="danger" />
           </section>
 
-          <CinemaTable />
+          <CinemaTable cinemas={cinemas} onDelete={handleDelete} />
 
           <section className="cinema-map-grid">
             <CinemaMapCard
               title="Vị trí rạp Miền Nam"
-              meta="12 cơ sở hoạt động • 45 phòng chiếu"
+              meta={`${cinemas.length} cơ sở trong hệ thống`}
               image="https://images.unsplash.com/photo-1596422846543-75c6fc197f07?auto=format&fit=crop&w=900&q=85"
             />
             <CinemaMapCard
               title="Vị trí rạp Miền Bắc"
-              meta="8 cơ sở hoạt động • 32 phòng chiếu"
+              meta={`${cityCount} thành phố đang phục vụ`}
               image="https://images.unsplash.com/photo-1523731407965-2430cd12f5e4?auto=format&fit=crop&w=900&q=85"
             />
           </section>
@@ -184,7 +179,7 @@ function CinemaStat({ icon: Icon, label, value, tone }) {
   );
 }
 
-function CinemaTable() {
+function CinemaTable({ cinemas, onDelete }) {
   return (
     <section className="cinema-table-card">
       <div className="cinema-table-scroll">
@@ -200,8 +195,8 @@ function CinemaTable() {
             </tr>
           </thead>
           <tbody>
-            {cinemas.map((cinema) => (
-              <tr key={cinema.code}>
+            {cinemas.length ? cinemas.map((cinema) => (
+              <tr key={cinema.id || cinema.code}>
                 <td>
                   <div className="cinema-name-cell">
                     <span>{cinema.code}</span>
@@ -218,16 +213,20 @@ function CinemaTable() {
                   <div className="cinema-row-actions">
                     <button type="button" aria-label={`Sửa ${cinema.name}`}><Pencil size={18} /></button>
                     <button type="button" aria-label={`Xem phòng ${cinema.name}`}><DoorOpen size={18} /></button>
-                    <button type="button" aria-label={`Xóa ${cinema.name}`}><Trash2 size={18} /></button>
+                    <button type="button" aria-label={`Xóa ${cinema.name}`} onClick={() => onDelete(cinema)}><Trash2 size={18} /></button>
                   </div>
                 </td>
               </tr>
-            ))}
+            )) : (
+              <tr>
+                <td colSpan="6">Chưa có dữ liệu</td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
       <div className="cinema-pagination">
-        <p>Hiển thị 1-4 trên 24 rạp</p>
+        <p>Hiển thị 1-{cinemas.length} trên {cinemas.length} rạp</p>
         <div>
           <button type="button"><ChevronLeft size={18} /></button>
           <button className="active" type="button">1</button>
@@ -251,6 +250,20 @@ function CinemaMapCard({ title, meta, image }) {
       </div>
     </article>
   );
+}
+
+function mapCinema(cinema) {
+  const active = cinema.status === "ACTIVE";
+  return {
+    id: cinema.id,
+    code: (cinema.name || "CV").slice(0, 2).toUpperCase(),
+    name: cinema.name || "--",
+    city: cinema.city || "--",
+    address: cinema.address || "--",
+    phone: cinema.phone || "--",
+    status: active ? "Đang hoạt động" : "Bảo trì",
+    tone: active ? "active" : "maintenance"
+  };
 }
 
 export default CinemaManagementPage;

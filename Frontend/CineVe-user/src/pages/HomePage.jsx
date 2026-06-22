@@ -1,6 +1,9 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Bell, CircleUserRound, Clapperboard, Home, Mail, MapPin, Search, Share2, Star, Ticket, TicketCheck, UsersRound } from "lucide-react";
 import { Link } from "react-router-dom";
+import { cinemaApi, movieApi } from "../api/clientApi";
+import AccountNavActions from "../components/common/AccountNavActions.jsx";
+import { assetUrl, formatDate } from "../utils/format";
 
 const heroMovie = {
   title: "Dune: Hành Tinh Cát - Phần 2",
@@ -93,6 +96,11 @@ const promotions = [
 function HomePage() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [heroOffset, setHeroOffset] = useState(0);
+  const [homeData, setHomeData] = useState({
+    nowShowing: nowShowingMovies,
+    comingSoon: comingSoonMovies,
+    cinemas
+  });
 
   useEffect(() => {
     const onScroll = () => {
@@ -105,14 +113,34 @@ function HomePage() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  useEffect(() => {
+    Promise.all([movieApi.nowShowing(), movieApi.comingSoon(), cinemaApi.list()])
+      .then(([nowShowingResult, comingSoonResult, cinemaResult]) => {
+        setHomeData({
+          nowShowing: nowShowingResult?.length ? nowShowingResult.map(mapMovieCard) : nowShowingMovies,
+          comingSoon: comingSoonResult?.length ? comingSoonResult.map(mapComingMovie) : comingSoonMovies,
+          cinemas: cinemaResult?.length ? cinemaResult.map((cinema) => [cinema.name, cinema.address || cinema.city]) : cinemas
+        });
+      })
+      .catch(() => setHomeData({ nowShowing: nowShowingMovies, comingSoon: comingSoonMovies, cinemas }));
+  }, []);
+
+  const hero = homeData.nowShowing[0]
+    ? {
+        title: homeData.nowShowing[0].title,
+        rating: homeData.nowShowing[0].rating,
+        image: homeData.nowShowing[0].image,
+        description: homeData.nowShowing[0].description || heroMovie.description
+      }
+    : heroMovie;
+
   return (
     <div className="home-page">
       <HomeNavbar isScrolled={isScrolled} />
-      <HeroSection heroOffset={heroOffset} />
-      <NowShowingSection />
-      <ComingSoonSection />
-      <CinemaPromoSection />
-      <HomeFooter />
+      <HeroSection heroOffset={heroOffset} movie={hero} />
+      <NowShowingSection movies={homeData.nowShowing} />
+      <ComingSoonSection movies={homeData.comingSoon} />
+      <CinemaPromoSection cinemasData={homeData.cinemas} />
       <MobileNav />
     </div>
   );
@@ -141,25 +169,20 @@ function HomeNavbar({ isScrolled }) {
           <button className="icon-button" type="button" aria-label="Thông báo">
             <Bell size={20} />
           </button>
-          <Link className="nav-login" to="/dang-nhap">
-            Đăng nhập
-          </Link>
-          <Link className="nav-register" to="/dang-ky">
-            Đăng ký
-          </Link>
+          <AccountNavActions />
         </div>
       </div>
     </nav>
   );
 }
 
-function HeroSection({ heroOffset }) {
+function HeroSection({ heroOffset, movie }) {
   return (
     <header className="home-hero">
       <img
         className="home-hero-image"
-        src={heroMovie.image}
-        alt={heroMovie.title}
+        src={movie.image}
+        alt={movie.title}
         style={{ transform: `translateY(${heroOffset}px)` }}
       />
       <div className="home-hero-gradient" />
@@ -168,11 +191,11 @@ function HeroSection({ heroOffset }) {
           <span className="trend-badge">THỊNH HÀNH</span>
           <span className="rating-pill">
             <Star size={18} fill="currentColor" />
-            {heroMovie.rating} IMDb
+            {movie.rating} IMDb
           </span>
         </div>
-        <h1>{heroMovie.title}</h1>
-        <p>{heroMovie.description}</p>
+        <h1>{movie.title}</h1>
+        <p>{movie.description}</p>
         <div className="hero-actions">
           <button className="hero-primary" type="button">
             <TicketCheck size={22} />
@@ -187,7 +210,7 @@ function HeroSection({ heroOffset }) {
   );
 }
 
-function NowShowingSection() {
+function NowShowingSection({ movies }) {
   return (
     <section className="home-section" id="phim-dang-chieu">
       <SectionHeader
@@ -196,7 +219,7 @@ function NowShowingSection() {
         action="Xem tất cả"
       />
       <div className="movie-grid">
-        {nowShowingMovies.map((movie) => (
+        {movies.map((movie) => (
           <article className="movie-card" key={movie.title}>
             <div className="movie-poster">
               <img src={movie.image} alt={movie.title} />
@@ -221,13 +244,13 @@ function NowShowingSection() {
   );
 }
 
-function ComingSoonSection() {
+function ComingSoonSection({ movies }) {
   return (
     <section className="coming-section">
       <div className="home-section compact">
         <SectionTitle title="Phim Sắp Chiếu" accent="gold" />
         <div className="coming-grid">
-          {comingSoonMovies.map((movie) => (
+          {movies.map((movie) => (
             <article className="coming-card" key={movie.title}>
               <div className="coming-poster">
                 <img src={movie.image} alt={movie.title} />
@@ -246,14 +269,14 @@ function ComingSoonSection() {
   );
 }
 
-function CinemaPromoSection() {
+function CinemaPromoSection({ cinemasData }) {
   return (
     <section className="home-section">
       <div className="cinema-promo-layout">
         <div id="rap-pho-bien">
           <h2 className="plain-section-title">Rạp Phổ Biến</h2>
           <div className="cinema-list">
-            {cinemas.map(([name, address]) => (
+            {cinemasData.map(([name, address]) => (
               <article className="cinema-item" key={name}>
                 <div className="cinema-icon">
                   <Clapperboard size={30} />
@@ -398,6 +421,28 @@ function MobileNav() {
       </Link>
     </div>
   );
+}
+
+function mapMovieCard(movie) {
+  return {
+    title: movie.title,
+    id: movie.id,
+    genres: (movie.genres || []).map((genre) => genre.name).join(", ") || "Đang cập nhật",
+    duration: `${movie.durationMinutes || "--"} phút`,
+    rating: movie.ageRating || "P",
+    image: assetUrl(movie.posterUrl),
+    description: movie.description
+  };
+}
+
+function mapComingMovie(movie) {
+  return {
+    title: movie.title,
+    id: movie.id,
+    date: formatDate(movie.releaseDate),
+    description: movie.description || "Thông tin phim sẽ được CineVe cập nhật sớm.",
+    image: assetUrl(movie.posterUrl)
+  };
 }
 
 export default HomePage;

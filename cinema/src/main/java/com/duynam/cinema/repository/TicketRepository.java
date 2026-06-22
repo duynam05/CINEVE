@@ -1,11 +1,13 @@
 package com.duynam.cinema.repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import com.duynam.cinema.constant.TicketStatus;
 import com.duynam.cinema.entity.Ticket;
 
 @Repository
@@ -17,4 +19,6 @@ public interface TicketRepository extends JpaRepository<Ticket, String> {
     Optional<Ticket> findByBookingIdAndBookingUserEmail(String bookingId, String email);
 
     List<Ticket> findAllByOrderByCreatedAtDesc();
+
+    long countByStatusIn(Collection<TicketStatus> statuses);
 }

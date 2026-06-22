@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { forwardRef, useEffect, useMemo, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Lock, Mail, Phone, UserRound } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { toast } from "react-toastify";
-import AuthFooter from "../components/AuthFooter.jsx";
 import AuthNavbar from "../components/AuthNavbar.jsx";
 import { login, register } from "../api/authApi.js";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -15,6 +14,7 @@ function AuthPage({ initialMode = "login" }) {
   const [mode, setMode] = useState(initialMode);
   const [bgOffset, setBgOffset] = useState({ x: 0, y: 0 });
   const navigate = useNavigate();
+  const location = useLocation();
   const { signIn } = useAuth();
 
   useEffect(() => {
@@ -68,22 +68,30 @@ function AuthPage({ initialMode = "login" }) {
               onLoggedIn={(authResult) => {
                 signIn(authResult);
                 toast.success("Đăng nhập thành công");
-                navigate("/", { replace: true });
+                if (isAdminUser(authResult?.user)) {
+                  redirectToAdmin(authResult);
+                  return;
+                }
+                navigate(location.state?.from?.pathname || "/", { replace: true });
               }}
             />
             <RegisterForm
               isActive={mode === "register"}
               onLoginClick={() => handleModeChange("login")}
-              onRegistered={() => {
+              onRegistered={(result, email) => {
                 toast.success("Đăng ký thành công, vui lòng xác thực Email");
-                handleModeChange("login");
+                navigate("/xac-thuc-email", {
+                  state: {
+                    email,
+                    otp: result?.verificationOtp
+                  }
+                });
               }}
             />
           </div>
         </section>
       </main>
 
-      <AuthFooter />
     </div>
   );
 }
@@ -107,7 +115,7 @@ function LoginForm({ isActive, onRegisterClick, onLoggedIn }) {
         email: values.email,
         password: values.password
       });
-      onLoggedIn(data.result);
+      onLoggedIn(data);
     } catch (error) {
       toast.error(error?.response?.data?.message || "Đăng nhập thất bại");
     }
@@ -187,13 +195,13 @@ function RegisterForm({ isActive, onLoginClick, onRegistered }) {
 
   const onSubmit = async (values) => {
     try {
-      await register({
+      const result = await register({
         fullName: values.fullName,
         email: values.email,
         phone: values.phone,
         password: values.password
       });
-      onRegistered();
+      onRegistered(result, values.email);
     } catch (error) {
       toast.error(error?.response?.data?.message || "Đăng ký thất bại");
     }
@@ -294,15 +302,36 @@ function RegisterForm({ isActive, onLoginClick, onRegistered }) {
   );
 }
 
-const Field = ({ icon, label, error, ...inputProps }) => (
+const Field = forwardRef(({ icon, label, error, ...inputProps }, ref) => (
   <label className="field">
     <span className="field-label">{label}</span>
     <span className={`input-shell ${error ? "has-error" : ""}`}>
       {icon && <span className="input-icon">{icon}</span>}
-      <input className={icon ? "with-icon" : ""} {...inputProps} />
+      <input ref={ref} className={icon ? "with-icon" : ""} {...inputProps} />
     </span>
     {error && <span className="field-error">{error}</span>}
   </label>
-);
+));
+
+Field.displayName = "Field";
+
+function isAdminUser(user) {
+  const roles = Array.isArray(user?.roles) ? user.roles : Array.from(user?.roles || []);
+  return roles.some((role) => {
+    const name = typeof role === "string" ? role : role?.name;
+    return name === "ADMIN" || name === "ROLE_ADMIN";
+  });
+}
+
+function redirectToAdmin(authResult) {
+  const adminBaseUrl = import.meta.env.VITE_ADMIN_BASE_URL || "http://localhost:5174";
+  const params = new URLSearchParams({
+    token: authResult?.token || "",
+    refreshToken: authResult?.refreshToken || "",
+    user: encodeURIComponent(JSON.stringify(authResult?.user || {}))
+  });
+
+  window.location.assign(`${adminBaseUrl}/dashboard?${params.toString()}`);
+}
 
 export default AuthPage;

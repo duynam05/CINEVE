@@ -1,16 +1,13 @@
-import httpClient from "./httpClient";
+import { authApi } from "./clientApi";
 
 export const login = async (payload) => {
-  const response = await httpClient.post("/api/auth/login", payload);
-  return response.data;
+  return authApi.login(payload);
 };
 
 export const register = async (payload) => {
-  const response = await httpClient.post("/api/auth/register", payload);
-  return response.data;
+  return authApi.register(payload);
 };
 
 export const getMe = async () => {
-  const response = await httpClient.get("/api/auth/me");
-  return response.data;
+  return authApi.me();
 };

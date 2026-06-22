@@ -1,16 +1,12 @@
-import { useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { Bell, Clock3, Filter, Globe2, Mail, Map, MapPin, Search, Star, Ticket, Video } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { toast } from "react-toastify";
+import { cinemaApi, movieApi, showtimeApi } from "../api/clientApi";
+import AccountNavActions from "../components/common/AccountNavActions.jsx";
+import { assetUrl, formatCurrency, formatTime, getErrorMessage } from "../utils/format";
 
-const dates = [
-  { id: "2026-06-15", dayName: "Th 2", day: "15", weekend: false },
-  { id: "2026-06-16", dayName: "Th 3", day: "16", weekend: false },
-  { id: "2026-06-17", dayName: "Th 4", day: "17", weekend: false },
-  { id: "2026-06-18", dayName: "Th 5", day: "18", weekend: false },
-  { id: "2026-06-19", dayName: "Th 6", day: "19", weekend: true },
-  { id: "2026-06-20", dayName: "Th 7", day: "20", weekend: true },
-  { id: "2026-06-21", dayName: "CN", day: "21", weekend: false }
-];
+const dates = createDateOptions();
 
 const cinemas = [
   {
@@ -66,15 +62,61 @@ const cinemas = [
 
 function ShowtimeSelectionPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const movieId = searchParams.get("movieId");
+  const cinemaId = searchParams.get("cinemaId");
   const [selectedDate, setSelectedDate] = useState(dates[0].id);
   const [selectedFormat, setSelectedFormat] = useState("2D");
   const [selectedSlot, setSelectedSlot] = useState(null);
+  const [movie, setMovie] = useState(null);
+  const [cinemaList, setCinemaList] = useState(cinemas);
+  const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState({
     area: "Tất cả Hà Nội",
     morning: false,
     afternoon: true,
     evening: true
   });
+
+  useEffect(() => {
+    let ignore = false;
+
+    const loadShowtimes = async () => {
+      setLoading(true);
+      setSelectedSlot(null);
+
+      try {
+        const [showtimes, movieDetail] = await Promise.all([
+          fetchShowtimes({ movieId, cinemaId, date: selectedDate }),
+          movieId ? movieApi.detail(movieId) : Promise.resolve(null)
+        ]);
+
+        if (ignore) return;
+
+        if (movieDetail) {
+          setMovie(movieDetail);
+        }
+
+        const mappedCinemas = groupShowtimesByCinema(showtimes);
+        setCinemaList(mappedCinemas.length > 0 ? mappedCinemas : cinemas);
+      } catch (error) {
+        if (!ignore) {
+          setCinemaList(cinemas);
+          toast.error(getErrorMessage(error, "Không tải được lịch chiếu, đang hiển thị dữ liệu mẫu"));
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadShowtimes();
+
+    return () => {
+      ignore = true;
+    };
+  }, [movieId, cinemaId, selectedDate]);
 
   const selectedSlotLabel = useMemo(() => {
     if (!selectedSlot) return "Chưa chọn suất chiếu";
@@ -90,7 +132,7 @@ function ShowtimeSelectionPage() {
     <div className="showtime-page">
       <ShowtimeNavbar />
       <main>
-        <ShowtimeHero />
+        <ShowtimeHero movie={movie} />
         <DateSelector selectedDate={selectedDate} onSelect={setSelectedDate} />
         <section className="showtime-content">
           <aside className="showtime-sidebar">
@@ -107,14 +149,18 @@ function ShowtimeSelectionPage() {
             <div className="selected-showtime-strip">
               <div>
                 <span>Suất chiếu đã chọn</span>
-                <strong>{selectedSlotLabel}</strong>
+                <strong>{loading ? "Đang tải lịch chiếu..." : selectedSlotLabel}</strong>
               </div>
-              <button type="button" disabled={!selectedSlot} onClick={() => navigate("/chon-ghe")}>
+              <button
+                type="button"
+                disabled={!selectedSlot}
+                onClick={() => navigate(`/chon-ghe?showtimeId=${selectedSlot.id}`)}
+              >
                 Tiếp tục chọn ghế
               </button>
             </div>
 
-            {cinemas.map((cinema) => (
+            {cinemaList.map((cinema) => (
               <CinemaShowtimeCard
                 cinema={cinema}
                 selectedSlotId={selectedSlot?.id}
@@ -125,7 +171,6 @@ function ShowtimeSelectionPage() {
           </section>
         </section>
       </main>
-      <ShowtimeFooter />
     </div>
   );
 }
@@ -145,15 +190,14 @@ function ShowtimeNavbar() {
         <div className="home-nav-actions">
           <button className="icon-button" type="button" aria-label="Tìm kiếm"><Search size={20} /></button>
           <button className="icon-button" type="button" aria-label="Thông báo"><Bell size={20} /></button>
-          <Link className="nav-login" to="/dang-nhap">Đăng nhập</Link>
-          <Link className="nav-register" to="/dang-ky">Đăng ký</Link>
+          <AccountNavActions />
         </div>
       </div>
     </nav>
   );
 }
 
-function ShowtimeHero() {
+function ShowtimeHero({ movie }) {
   return (
     <section className="showtime-hero">
       <img
@@ -164,18 +208,18 @@ function ShowtimeHero() {
       <div className="showtime-hero-content">
         <div className="showtime-poster">
           <img
-            src="https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=700&q=85"
-            alt="Poster Hành Tinh Bất Diệt"
+            src={movie ? assetUrl(movie.posterUrl) : "https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=700&q=85"}
+            alt={movie?.title || "Poster Hành Tinh Bất Diệt"}
           />
         </div>
         <div>
           <div className="showtime-tags">
-            <span>HÀNH ĐỘNG</span>
-            <span>2H 15P</span>
-            <span className="age">T16</span>
+            <span>{movie?.genres?.[0]?.name || "HÀNH ĐỘNG"}</span>
+            <span>{movie?.durationMinutes ? `${movie.durationMinutes} phút` : "2H 15P"}</span>
+            <span className="age">{movie?.ageRating || "T16"}</span>
           </div>
-          <h1>Hành Tinh Bất Diệt: Trỗi Dậy</h1>
-          <p>Trải nghiệm đỉnh cao của điện ảnh với hệ thống âm thanh Dolby Atmos và công nghệ trình chiếu IMAX thế hệ mới.</p>
+          <h1>{movie?.title || "Hành Tinh Bất Diệt: Trỗi Dậy"}</h1>
+          <p>{movie?.description || "Trải nghiệm đỉnh cao của điện ảnh với hệ thống âm thanh Dolby Atmos và công nghệ trình chiếu IMAX thế hệ mới."}</p>
         </div>
       </div>
     </section>
@@ -320,7 +364,7 @@ function CinemaShowtimeCard({ cinema, selectedSlotId, onChooseSlot }) {
                 >
                   <strong>{slot.start}</strong>
                   <span>{slot.disabled ? "Hết chỗ" : `~ ${slot.end}`}</span>
-                  {!slot.disabled && <small>{slot.seats} ghế trống</small>}
+                  {!slot.disabled && <small>{slot.seats}</small>}
                   <b>{formatCurrency(slot.price)}</b>
                 </button>
               ))}
@@ -370,11 +414,81 @@ function FooterColumn({ title, links }) {
   );
 }
 
-function formatCurrency(value) {
-  return new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND"
-  }).format(value);
+async function fetchShowtimes({ movieId, cinemaId, date }) {
+  if (movieId) return movieApi.showtimes(movieId, date);
+  if (cinemaId) return cinemaApi.showtimes(cinemaId, date);
+  return showtimeApi.list({ date });
+}
+
+function groupShowtimesByCinema(showtimes = []) {
+  const cinemaMap = new Map();
+
+  showtimes.forEach((showtime) => {
+    if (!showtime?.id) return;
+
+    const cinemaKey = showtime.cinemaId || showtime.cinemaName || "cinema";
+    const roomKey = `${showtime.roomId || showtime.roomName || "room"}-${showtime.roomType || ""}`;
+
+    if (!cinemaMap.has(cinemaKey)) {
+      cinemaMap.set(cinemaKey, {
+        id: cinemaKey,
+        name: showtime.cinemaName || "CineVe",
+        address: "Địa chỉ rạp đang cập nhật",
+        distance: "CineVe",
+        rooms: new Map()
+      });
+    }
+
+    const cinema = cinemaMap.get(cinemaKey);
+
+    if (!cinema.rooms.has(roomKey)) {
+      cinema.rooms.set(roomKey, {
+        name: showtime.roomName || "Phòng chiếu",
+        tone: getRoomTone(showtime.roomType),
+        slots: []
+      });
+    }
+
+    cinema.rooms.get(roomKey).slots.push({
+      id: showtime.id,
+      start: formatTime(showtime.startTime),
+      end: formatTime(showtime.endTime),
+      seats: "Còn vé",
+      price: showtime.normalSeatPrice || showtime.vipSeatPrice || showtime.coupleSeatPrice || 0,
+      disabled: showtime.status !== "OPEN"
+    });
+  });
+
+  return Array.from(cinemaMap.values()).map((cinema) => ({
+    ...cinema,
+    rooms: Array.from(cinema.rooms.values()).map((room) => ({
+      ...room,
+      slots: room.slots.sort((a, b) => a.start.localeCompare(b.start))
+    }))
+  }));
+}
+
+function getRoomTone(roomType) {
+  if (roomType === "VIP") return "vip";
+  if (roomType === "IMAX") return "imax";
+  return "standard";
+}
+
+function createDateOptions() {
+  const formatter = new Intl.DateTimeFormat("vi-VN", { weekday: "short" });
+
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date();
+    date.setDate(date.getDate() + index);
+    const day = date.getDay();
+
+    return {
+      id: date.toISOString().slice(0, 10),
+      dayName: index === 0 ? "Hôm nay" : formatter.format(date).replace(".", ""),
+      day: String(date.getDate()).padStart(2, "0"),
+      weekend: day === 0 || day === 6
+    };
+  });
 }
 
 export default ShowtimeSelectionPage;

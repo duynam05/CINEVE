@@ -36,4 +36,14 @@ public interface BookingRepository extends JpaRepository<Booking, String> {
     List<Booking> searchAdminBookings(
             @Param("keyword") String keyword,
             @Param("status") BookingStatus status);
+
+    long countByStatus(BookingStatus status);
+
+    @Query("""
+            select b.status, count(b)
+            from Booking b
+            group by b.status
+            order by b.status asc
+            """)
+    List<Object[]> countBookingsByStatus();
 }

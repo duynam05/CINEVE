@@ -38,4 +38,16 @@ public interface BookingSeatRepository extends JpaRepository<BookingSeat, String
               )
             """)
     List<String> findActiveBookedSeatIdsByShowtimeId(@Param("showtimeId") String showtimeId);
+
+    @Query("""
+            select bs.showtime.movie.id, bs.showtime.movie.title, count(bs), coalesce(sum(bs.price), 0)
+            from BookingSeat bs
+            where bs.booking.status in (
+                    com.duynam.cinema.constant.BookingStatus.CONFIRMED,
+                    com.duynam.cinema.constant.BookingStatus.COMPLETED
+              )
+            group by bs.showtime.movie.id, bs.showtime.movie.title
+            order by count(bs) desc, coalesce(sum(bs.price), 0) desc
+            """)
+    List<Object[]> findTopMoviesByTicketsSold();
 }

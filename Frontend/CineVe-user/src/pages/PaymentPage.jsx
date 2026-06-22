@@ -1,6 +1,10 @@
-import { useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { Banknote, Bell, CalendarDays, CreditCard, Gift, IceCreamBowl, Landmark, MapPin, Search, Soup, Ticket, WalletCards } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import { bookingApi, couponApi } from "../api/clientApi";
+import AccountNavActions from "../components/common/AccountNavActions.jsx";
+import { formatCurrency, formatDateTime, getErrorMessage } from "../utils/format";
 
 const paymentMethods = [
   {
@@ -46,15 +50,75 @@ const order = {
 };
 
 function PaymentPage() {
+  const navigate = useNavigate();
+  const [draft, setDraft] = useState(null);
   const [selectedMethod, setSelectedMethod] = useState("card");
   const [coupon, setCoupon] = useState("");
   const [discount, setDiscount] = useState(0);
+  const [couponResult, setCouponResult] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  const total = useMemo(() => Math.max(0, order.subtotal - discount), [discount]);
+  useEffect(() => {
+    const storedDraft = sessionStorage.getItem("cineve_booking_draft");
+    if (!storedDraft) return;
 
-  const applyCoupon = () => {
+    try {
+      setDraft(JSON.parse(storedDraft));
+    } catch {
+      sessionStorage.removeItem("cineve_booking_draft");
+    }
+  }, []);
+
+  const displayOrder = useMemo(() => mapDraftToOrder(draft), [draft]);
+  const subtotal = displayOrder.subtotal;
+  const total = useMemo(() => Math.max(0, subtotal - discount), [subtotal, discount]);
+
+  const applyCoupon = async () => {
     const normalized = coupon.trim().toUpperCase();
-    setDiscount(normalized === "CINEVE50" ? 50000 : 0);
+    if (!normalized) {
+      toast.error("Vui lòng nhập mã giảm giá");
+      return;
+    }
+
+    try {
+      const result = await couponApi.apply({ code: normalized, orderAmount: subtotal });
+      setCouponResult(result);
+      setDiscount(Number(result.discountAmount || 0));
+      toast.success("Áp dụng mã giảm giá thành công");
+    } catch (error) {
+      setCouponResult(null);
+      setDiscount(0);
+      toast.error(getErrorMessage(error, "Mã giảm giá không hợp lệ"));
+    }
+  };
+
+  const confirmPayment = async () => {
+    if (!draft?.showtimeId || !draft?.seatIds?.length) {
+      toast.error("Thiếu thông tin đặt vé, vui lòng chọn lại suất chiếu và ghế");
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      const booking = await bookingApi.create({
+        showtimeId: draft.showtimeId,
+        seatIds: draft.seatIds,
+        foods: draft.foods?.map((food) => ({ foodId: food.foodId, quantity: food.quantity })) || [],
+        couponCode: couponResult?.code || null,
+        paymentMethod: mapPaymentMethod(selectedMethod),
+        paymentSuccess: true
+      });
+
+      sessionStorage.setItem("cineve_latest_booking", JSON.stringify(booking));
+      sessionStorage.removeItem("cineve_booking_draft");
+      toast.success("Đặt vé thành công");
+      navigate(`/dat-ve-thanh-cong?bookingId=${booking.id}`);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Thanh toán thất bại"));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -101,13 +165,18 @@ function PaymentPage() {
               />
               <button type="button" onClick={applyCoupon}>Áp dụng</button>
             </div>
-            {discount > 0 && <p className="coupon-success">Đã áp dụng mã CINEVE50, giảm {formatCurrency(discount)}.</p>}
+            {discount > 0 && <p className="coupon-success">Đã áp dụng mã {couponResult?.code || coupon.trim().toUpperCase()}, giảm {formatCurrency(discount)}.</p>}
           </section>
         </section>
 
-        <PaymentSummary discount={discount} total={total} />
+        <PaymentSummary
+          order={displayOrder}
+          discount={discount}
+          total={total}
+          onConfirm={confirmPayment}
+          submitting={submitting}
+        />
       </main>
-      <PaymentFooter />
     </div>
   );
 }
@@ -127,15 +196,14 @@ function PaymentNavbar() {
         <div className="home-nav-actions">
           <button className="icon-button" type="button" aria-label="Tìm kiếm"><Search size={20} /></button>
           <button className="icon-button" type="button" aria-label="Thông báo"><Bell size={20} /></button>
-          <Link className="nav-login" to="/dang-nhap">Đăng nhập</Link>
-          <Link className="nav-register" to="/dang-ky">Đăng ký</Link>
+          <AccountNavActions />
         </div>
       </div>
     </nav>
   );
 }
 
-function PaymentSummary({ discount, total }) {
+function PaymentSummary({ order, discount, total, onConfirm, submitting }) {
   return (
     <aside className="payment-summary">
       <div className="payment-summary-card">
@@ -178,9 +246,9 @@ function PaymentSummary({ discount, total }) {
           </div>
         </div>
 
-        <Link className="payment-confirm payment-confirm-link" to="/dat-ve-thanh-cong">
-          Xác Nhận Thanh Toán
-        </Link>
+        <button className="payment-confirm payment-confirm-link" type="button" onClick={onConfirm} disabled={submitting}>
+          {submitting ? "Đang xử lý..." : "Xác Nhận Thanh Toán"}
+        </button>
         <p>Bằng việc nhấn thanh toán, bạn đồng ý với Điều khoản sử dụng của CineVe.</p>
       </div>
     </aside>
@@ -226,11 +294,41 @@ function FooterColumn({ title, links }) {
   );
 }
 
-function formatCurrency(value) {
-  return new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND"
-  }).format(value);
+function mapDraftToOrder(draft) {
+  if (!draft) return order;
+
+  const showtime = draft.showtime || {};
+  const foods = draft.foods?.length
+    ? draft.foods.map((food) => ({
+        name: `${food.quantity}x ${food.name}`,
+        price: Number(food.price || 0) * Number(food.quantity || 0),
+        icon: <Soup size={20} />
+      }))
+    : [{ name: "Không chọn combo", price: 0, icon: <Soup size={20} /> }];
+
+  return {
+    movie: showtime.movieTitle || order.movie,
+    cinema: showtime.cinemaName || order.cinema,
+    room: `${showtime.roomName || "Phòng chiếu"}${showtime.roomType ? ` • ${showtime.roomType}` : ""}`,
+    date: showtime.startTime ? formatDateTime(showtime.startTime) : order.date,
+    showtime: showtime.startTime ? formatDateTime(showtime.startTime).split(" ")[0] : order.showtime,
+    seats: draft.seatCodes?.join(", ") || order.seats,
+    ticketType: "CineVe",
+    poster: order.poster,
+    foods,
+    subtotal: Number(draft.totalPrice || order.subtotal)
+  };
+}
+
+function mapPaymentMethod(method) {
+  const methods = {
+    card: "BANK_CARD",
+    momo: "MOMO",
+    vnpay: "VNPAY",
+    bank: "BANK_TRANSFER"
+  };
+
+  return methods[method] || "BANK_CARD";
 }
 
 export default PaymentPage;

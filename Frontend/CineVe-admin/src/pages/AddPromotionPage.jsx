@@ -17,17 +17,43 @@ import {
   Warehouse
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { toast } from "react-toastify";
+import { adminCouponApi } from "../api/adminApi";
+import { getErrorMessage } from "../api/axiosClient";
 
 function AddPromotionPage() {
   const [code, setCode] = useState("");
   const [discount, setDiscount] = useState("");
   const [expiry, setExpiry] = useState("");
 
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const today = new Date().toISOString().slice(0, 10);
+
+    try {
+      await adminCouponApi.create({
+        code,
+        name: code || "Mã giảm giá",
+        description: "",
+        type: "PERCENT",
+        discountValue: Number(discount || 0),
+        minOrderAmount: Number(formData.get("minOrderAmount") || 0),
+        maxDiscountAmount: Number(formData.get("maxDiscountAmount") || 0) || null,
+        startTime: `${today}T00:00:00`,
+        endTime: `${expiry || today}T23:59:59`,
+        usageLimit: Number(formData.get("usageLimit") || 1),
+        active: true
+      });
+      toast.success("Thao tác thành công");
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  };
+
   return (
     <div className="admin-shell">
-      <AddPromotionSidebar />
       <div className="admin-workspace">
-        <AddPromotionTopbar />
         <main className="add-promotion-main">
           <section className="add-promotion-header">
             <div>
@@ -40,7 +66,7 @@ function AddPromotionPage() {
             </Link>
           </section>
 
-          <form className="add-promotion-grid" onSubmit={(event) => event.preventDefault()}>
+          <form className="add-promotion-grid" onSubmit={handleSubmit}>
             <section className="add-promotion-left">
               <article className="add-promotion-panel highlighted">
                 <label>
@@ -70,7 +96,7 @@ function AddPromotionPage() {
                   <label>
                     <span>Usage Limit</span>
                     <div className="add-promotion-input-icon">
-                      <input type="number" min="0" placeholder="Số lượng tối đa" />
+                      <input name="usageLimit" type="number" min="0" placeholder="Số lượng tối đa" />
                       <Group size={18} />
                     </div>
                   </label>
@@ -82,11 +108,11 @@ function AddPromotionPage() {
                 <div className="add-promotion-two-cols">
                   <label>
                     <span>Minimum Spend (VNĐ)</span>
-                    <input placeholder="0" />
+                    <input name="minOrderAmount" placeholder="0" />
                   </label>
                   <label>
                     <span>Max Discount Amount (VNĐ)</span>
-                    <input placeholder="Tối đa giảm" />
+                    <input name="maxDiscountAmount" placeholder="Tối đa giảm" />
                   </label>
                 </div>
               </article>

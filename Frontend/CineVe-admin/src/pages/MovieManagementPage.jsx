@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Bell,
   CalendarDays,
@@ -16,51 +16,39 @@ import {
   Settings,
   Ticket,
   Trash2,
-  Upload,
-  Warehouse,
-  X
+  Warehouse
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import { adminMovieApi } from "../api/adminApi";
+import { getErrorMessage } from "../api/axiosClient";
+import { asArray, formatDate, movieStatusLabel, movieStatusTone, toAbsoluteImage } from "../api/formatters";
 
 const adminAvatar =
   "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=240&q=85";
 
-const movies = [
-  {
-    title: "Dune: Part Two",
-    description: "Hành động, Viễn tưởng",
-    formats: ["IMAX", "2D"],
-    duration: "166 phút",
-    releaseDate: "01/03/2024",
-    status: "Đang chiếu",
-    tone: "showing",
-    poster: "https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=320&q=85"
-  },
-  {
-    title: "Inside Out 2",
-    description: "Hoạt hình, Hài hước",
-    formats: ["3D", "Lồng tiếng"],
-    duration: "96 phút",
-    releaseDate: "14/06/2024",
-    status: "Sắp chiếu",
-    tone: "upcoming",
-    poster: "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=320&q=85"
-  },
-  {
-    title: "Oppenheimer",
-    description: "Lịch sử, Chính kịch",
-    formats: ["2D", "Vietsub"],
-    duration: "180 phút",
-    releaseDate: "11/08/2023",
-    status: "Ngừng chiếu",
-    tone: "ended",
-    poster: "https://images.unsplash.com/photo-1505686994434-e3cc5abf1330?auto=format&fit=crop&w=320&q=85"
-  }
-];
-
 function MovieManagementPage() {
+  const navigate = useNavigate();
   const [query, setQuery] = useState("");
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [movies, setMovies] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadMovies = async () => {
+    try {
+      setLoading(true);
+      const data = await adminMovieApi.list();
+      setMovies(asArray(data).map(mapMovie));
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+      setMovies([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadMovies();
+  }, []);
 
   const visibleMovies = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -68,18 +56,37 @@ function MovieManagementPage() {
     return movies.filter((movie) =>
       [movie.title, movie.description, movie.status].join(" ").toLowerCase().includes(normalized)
     );
-  }, [query]);
+  }, [movies, query]);
+
+  const handleDelete = async (movie) => {
+    try {
+      await adminMovieApi.remove(movie.id);
+      toast.success("Thao tác thành công");
+      loadMovies();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  };
+
+  const handleStatusToggle = async (movie) => {
+    try {
+      const nextStatus = movie.rawStatus === "HIDDEN" ? "NOW_SHOWING" : "HIDDEN";
+      await adminMovieApi.updateStatus(movie.id, nextStatus);
+      toast.success("Thao tác thành công");
+      loadMovies();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  };
 
   return (
     <div className="admin-shell">
-      <MovieSidebar />
       <div className="admin-workspace">
-        <MovieTopbar />
         <main className="movie-admin-main">
           <header className="movie-admin-heading">
             <div>
               <h1>Quản lý phim</h1>
-              <p>Danh sách và thông tin các phim đang chiếu</p>
+              <p>{loading ? "Đang tải dữ liệu..." : "Danh sách và thông tin các phim đang chiếu"}</p>
             </div>
           </header>
 
@@ -95,16 +102,22 @@ function MovieManagementPage() {
           </section>
 
           <section className="movie-stat-grid">
-            <MovieStat icon={Film} label="Tổng số phim" value="124" tone="red" />
-            <MovieStat icon={Clapperboard} label="Đang công chiếu" value="12" tone="gold" />
-            <MovieStat icon={CalendarDays} label="Sắp khởi chiếu" value="8" tone="silver" />
+            <MovieStat icon={Film} label="Tổng số phim" value={movies.length} tone="red" />
+            <MovieStat icon={Clapperboard} label="Đang công chiếu" value={movies.filter((movie) => movie.rawStatus === "NOW_SHOWING").length} tone="gold" />
+            <MovieStat icon={CalendarDays} label="Sắp khởi chiếu" value={movies.filter((movie) => movie.rawStatus === "COMING_SOON").length} tone="silver" />
           </section>
 
-          <MovieTable movies={visibleMovies} />
+          <MovieTable
+            movies={visibleMovies}
+            total={movies.length}
+            onDelete={handleDelete}
+            onView={(movie) => navigate(`/movies/new?id=${movie.id}&mode=view`)}
+            onEdit={(movie) => navigate(`/movies/new?id=${movie.id}&mode=edit`)}
+            onStatusToggle={handleStatusToggle}
+          />
         </main>
         <MovieFooter />
       </div>
-      {isModalOpen && <AddMovieModal onClose={() => setIsModalOpen(false)} />}
     </div>
   );
 }
@@ -182,7 +195,7 @@ function MovieStat({ icon: Icon, label, value, tone }) {
   );
 }
 
-function MovieTable({ movies }) {
+function MovieTable({ movies, total, onDelete, onView, onEdit, onStatusToggle }) {
   return (
     <section className="movie-table-card">
       <div className="movie-table-scroll">
@@ -198,8 +211,8 @@ function MovieTable({ movies }) {
             </tr>
           </thead>
           <tbody>
-            {movies.map((movie) => (
-              <tr key={movie.title}>
+            {movies.length ? movies.map((movie) => (
+              <tr key={movie.id || movie.title}>
                 <td>
                   <div className="movie-title-cell">
                     <img src={movie.poster} alt={movie.title} />
@@ -226,19 +239,23 @@ function MovieTable({ movies }) {
                 </td>
                 <td>
                   <div className="movie-row-actions">
-                    <button type="button" aria-label={`Xem ${movie.title}`}><Eye size={17} /></button>
-                    <button type="button" aria-label={`Sửa ${movie.title}`}><Pencil size={17} /></button>
-                    <button type="button" aria-label={`Xóa ${movie.title}`}><Trash2 size={17} /></button>
-                    <button type="button" aria-label={`Thêm thao tác ${movie.title}`}><MoreVertical size={17} /></button>
+                    <button type="button" aria-label={`Xem ${movie.title}`} onClick={() => onView(movie)}><Eye size={17} /></button>
+                    <button type="button" aria-label={`Sửa ${movie.title}`} onClick={() => onEdit(movie)}><Pencil size={17} /></button>
+                    <button type="button" aria-label={`Xóa ${movie.title}`} onClick={() => onDelete(movie)}><Trash2 size={17} /></button>
+                    <button type="button" aria-label={`Đổi trạng thái ${movie.title}`} onClick={() => onStatusToggle(movie)}><MoreVertical size={17} /></button>
                   </div>
                 </td>
               </tr>
-            ))}
+            )) : (
+              <tr>
+                <td colSpan="6">Chưa có dữ liệu</td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
       <div className="movie-pagination">
-        <span>Đang hiển thị 1-{movies.length} của 124 phim</span>
+        <span>Đang hiển thị 1-{movies.length} của {total} phim</span>
         <div>
           <button type="button"><ChevronLeft size={18} /></button>
           <button type="button" className="active">1</button>
@@ -249,89 +266,6 @@ function MovieTable({ movies }) {
         </div>
       </div>
     </section>
-  );
-}
-
-function AddMovieModal({ onClose }) {
-  return (
-    <div className="movie-modal">
-      <button className="movie-modal-overlay" type="button" aria-label="Đóng modal" onClick={onClose} />
-      <section className="movie-modal-panel">
-        <header>
-          <h2>Thêm phim mới</h2>
-          <button type="button" onClick={onClose} aria-label="Đóng">
-            <X size={22} />
-          </button>
-        </header>
-        <form className="movie-form" onSubmit={(event) => event.preventDefault()}>
-          <div className="movie-form-grid poster-layout">
-            <label className="poster-upload">
-              <span>Poster phim</span>
-              <div>
-                <Upload size={38} />
-                <p>Tải lên file ảnh JPG, PNG, WebP</p>
-              </div>
-            </label>
-            <div className="movie-form-stack">
-              <label>
-                <span>Tiêu đề phim</span>
-                <input placeholder="Nhập tên phim..." />
-              </label>
-              <div className="movie-form-grid">
-                <label>
-                  <span>Thể loại</span>
-                  <select defaultValue="Hành động">
-                    <option>Hành động</option>
-                    <option>Kinh dị</option>
-                    <option>Hoạt hình</option>
-                    <option>Tình cảm</option>
-                    <option>Hài hước</option>
-                  </select>
-                </label>
-                <fieldset>
-                  <legend>Định dạng</legend>
-                  <label><input type="checkbox" />2D</label>
-                  <label><input type="checkbox" />3D</label>
-                  <label><input type="checkbox" />IMAX</label>
-                </fieldset>
-              </div>
-            </div>
-          </div>
-          <div className="movie-form-grid">
-            <label>
-              <span>Thời lượng (phút)</span>
-              <input type="number" placeholder="Ví dụ: 120" />
-            </label>
-            <label>
-              <span>Ngày khởi chiếu</span>
-              <input type="date" />
-            </label>
-          </div>
-          <label>
-            <span>Mô tả phim</span>
-            <textarea rows="4" placeholder="Nhập tóm tắt nội dung phim..." />
-          </label>
-          <div className="movie-form-grid">
-            <label>
-              <span>Đạo diễn</span>
-              <input />
-            </label>
-            <label>
-              <span>Trạng thái</span>
-              <select defaultValue="Đang chiếu">
-                <option>Đang chiếu</option>
-                <option>Sắp khởi chiếu</option>
-                <option>Ngừng chiếu</option>
-              </select>
-            </label>
-          </div>
-        </form>
-        <footer>
-          <button type="button" className="modal-cancel" onClick={onClose}>Hủy</button>
-          <button type="button" className="modal-save" onClick={onClose}>Lưu phim</button>
-        </footer>
-      </section>
-    </div>
   );
 }
 
@@ -346,6 +280,22 @@ function MovieFooter() {
       </nav>
     </footer>
   );
+}
+
+function mapMovie(movie) {
+  const genres = asArray(movie.genres).map((genre) => genre.name).filter(Boolean);
+  return {
+    id: movie.id,
+    title: movie.title || "--",
+    description: genres.join(", ") || movie.description || "--",
+    formats: genres.length ? genres : [movie.language || "2D"],
+    duration: `${movie.durationMinutes ?? 0} phút`,
+    releaseDate: formatDate(movie.releaseDate),
+    status: movieStatusLabel(movie.status),
+    rawStatus: movie.status,
+    tone: movieStatusTone(movie.status),
+    poster: toAbsoluteImage(movie.posterUrl)
+  };
 }
 
 export default MovieManagementPage;

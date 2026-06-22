@@ -15,52 +15,207 @@ import {
   Ticket,
   Warehouse
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import { toast } from "react-toastify";
+import { adminGenreApi, adminMovieApi } from "../api/adminApi";
+import { getErrorMessage } from "../api/axiosClient";
+import { asArray, toAbsoluteImage } from "../api/formatters";
 
 const adminAvatar =
   "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=240&q=85";
 
-const genres = ["Hành động", "Tình cảm", "Kinh dị", "Hoạt hình", "Khoa học viễn tưởng"];
-
 function AddMoviePage() {
-  const [selectedGenres, setSelectedGenres] = useState(["Hành động"]);
+  const [searchParams] = useSearchParams();
+  const movieId = searchParams.get("id");
+  const mode = searchParams.get("mode") || "create";
+  const isViewMode = mode === "view";
+  const isEditMode = mode === "edit";
+  const [genres, setGenres] = useState([]);
+  const [selectedGenres, setSelectedGenres] = useState([]);
+  const [isAddingGenre, setIsAddingGenre] = useState(false);
+  const [newGenreName, setNewGenreName] = useState("");
+  const [isCreatingGenre, setIsCreatingGenre] = useState(false);
   const [posterPreview, setPosterPreview] = useState("");
+  const [posterFile, setPosterFile] = useState(null);
+  const [movieForm, setMovieForm] = useState(null);
   const [showToast, setShowToast] = useState(false);
   const [status, setStatus] = useState("Đang chiếu");
   const [isVip, setIsVip] = useState(false);
 
-  const genreText = useMemo(() => selectedGenres.join(", "), [selectedGenres]);
+  const loadGenres = async () => {
+    try {
+      const data = asArray(await adminGenreApi.list());
+      setGenres(data);
+      return data;
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+      setGenres([]);
+      return [];
+    }
+  };
 
-  const toggleGenre = (genre) => {
-    setSelectedGenres((current) =>
-      current.includes(genre) ? current.filter((item) => item !== genre) : [...current, genre]
-    );
+  React.useEffect(() => {
+    let isMounted = true;
+
+    const loadInitialData = async () => {
+      const loadedGenres = await loadGenres();
+      if (!movieId) {
+        if (isMounted) {
+          setMovieForm(null);
+          setSelectedGenres([]);
+          setPosterPreview("");
+          setPosterFile(null);
+          setStatus("Đang chiếu");
+          setIsVip(false);
+        }
+        return;
+      }
+
+      try {
+        const movie = await adminMovieApi.detail(movieId);
+        if (!isMounted) return;
+
+        const movieGenres = asArray(movie?.genres);
+        const movieGenreIds = movieGenres.map((genre) => genre.id).filter(Boolean);
+        setMovieForm(movie || {});
+        setSelectedGenres(movieGenreIds);
+        setPosterPreview(movie?.posterUrl ? toAbsoluteImage(movie.posterUrl) : "");
+        setPosterFile(null);
+        setStatus(statusTextFromCode(movie?.status));
+        setIsVip(movie?.ageRating === "VIP");
+        setGenres(mergeGenres(loadedGenres, movieGenres));
+      } catch (error) {
+        toast.error(getErrorMessage(error));
+      }
+    };
+
+    loadInitialData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [movieId]);
+
+  const genreText = useMemo(
+    () => selectedGenres.map((id) => genres.find((genre) => genre.id === id)?.name).filter(Boolean).join(", "),
+    [genres, selectedGenres]
+  );
+
+  const handleCreateGenre = async () => {
+    const name = newGenreName.trim();
+
+    if (!name) {
+      toast.error("Vui lòng nhập tên thể loại");
+      return;
+    }
+
+    try {
+      setIsCreatingGenre(true);
+      const existingGenre = findGenreByName(genres, name);
+
+      if (existingGenre?.id) {
+        setSelectedGenres([existingGenre.id]);
+        setNewGenreName("");
+        setIsAddingGenre(false);
+        toast.success("Thao tác thành công");
+        return;
+      }
+
+      const createdGenre = await adminGenreApi.create({
+        name,
+        description: ""
+      });
+
+      if (createdGenre?.id) {
+        setGenres((current) => [...current, createdGenre]);
+        setSelectedGenres([createdGenre.id]);
+      }
+
+      setNewGenreName("");
+      setIsAddingGenre(false);
+      toast.success("Thao tác thành công");
+    } catch (error) {
+      try {
+        const latestGenres = asArray(await adminGenreApi.list());
+        setGenres(latestGenres);
+        const existingGenre = findGenreByName(latestGenres, name);
+
+        if (existingGenre?.id) {
+          setSelectedGenres([existingGenre.id]);
+          setNewGenreName("");
+          setIsAddingGenre(false);
+          toast.success("Thao tác thành công");
+          return;
+        }
+      } catch {
+        // Fall through to the original API error below.
+      }
+
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsCreatingGenre(false);
+    }
   };
 
   const handlePosterChange = (event) => {
+    if (isViewMode) return;
     const file = event.target.files?.[0];
     if (!file) return;
+    setPosterFile(file);
     setPosterPreview(URL.createObjectURL(file));
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    setShowToast(true);
-    window.clearTimeout(window.__cineveAddMovieToast);
-    window.__cineveAddMovieToast = window.setTimeout(() => setShowToast(false), 3000);
+    if (isViewMode) return;
+
+    const formData = new FormData(event.currentTarget);
+    const payload = {
+      title: formData.get("title") || "",
+      description: formData.get("description") || "",
+      durationMinutes: Number(formData.get("durationMinutes") || 0),
+      director: formData.get("director") || "",
+      actors: formData.get("actors") || "",
+      language: movieForm?.language || "Tiếng Việt",
+      country: movieForm?.country || "Việt Nam",
+      ageRating: isVip ? "VIP" : "T13",
+      releaseDate: formData.get("releaseDate") || null,
+      posterUrl: movieForm?.posterUrl || "",
+      trailerUrl: formData.get("trailerUrl") || "",
+      status: statusCodeFromText(status),
+      genreIds: selectedGenres
+    };
+
+    try {
+      const saved = isEditMode && movieId
+        ? await adminMovieApi.update(movieId, payload)
+        : await adminMovieApi.create(payload);
+      const savedId = movieId || saved?.id;
+
+      if (posterFile && savedId) {
+        const posterData = new FormData();
+        posterData.append("file", posterFile);
+        await adminMovieApi.uploadPoster(savedId, posterData);
+      }
+
+      toast.success("Thao tác thành công");
+      setShowToast(true);
+      window.clearTimeout(window.__cineveAddMovieToast);
+      window.__cineveAddMovieToast = window.setTimeout(() => setShowToast(false), 3000);
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
   };
 
   return (
     <div className="admin-shell">
-      <AddMovieSidebar />
       <div className="admin-workspace">
-        <AddMovieTopbar />
         <main className="add-movie-main">
-          <form className="add-movie-layout" onSubmit={handleSubmit}>
+          <form className="add-movie-layout" key={movieId ? `movie-${movieId}-${movieForm ? "ready" : "loading"}` : "new"} onSubmit={handleSubmit}>
             <aside className="add-movie-side">
               <section className="add-movie-glass poster-panel">
                 <label className="poster-dropzone">
-                  <input accept="image/*" type="file" onChange={handlePosterChange} />
+                  <input accept="image/*" type="file" onChange={handlePosterChange} disabled={isViewMode} />
                   {posterPreview ? (
                     <img src={posterPreview} alt="Poster xem trước" />
                   ) : (
@@ -84,15 +239,15 @@ function AddMoviePage() {
                 </h2>
                 <label>
                   <span>Đang chiếu</span>
-                  <input checked={status === "Đang chiếu"} name="status" type="radio" onChange={() => setStatus("Đang chiếu")} />
+                  <input checked={status === "Đang chiếu"} name="status" type="radio" onChange={() => setStatus("Đang chiếu")} disabled={isViewMode} />
                 </label>
                 <label>
                   <span>Sắp chiếu</span>
-                  <input checked={status === "Sắp chiếu"} name="status" type="radio" onChange={() => setStatus("Sắp chiếu")} />
+                  <input checked={status === "Sắp chiếu"} name="status" type="radio" onChange={() => setStatus("Sắp chiếu")} disabled={isViewMode} />
                 </label>
                 <label>
                   <span>Phim VIP</span>
-                  <input checked={isVip} type="checkbox" onChange={(event) => setIsVip(event.target.checked)} />
+                  <input checked={isVip} type="checkbox" onChange={(event) => setIsVip(event.target.checked)} disabled={isViewMode} />
                 </label>
               </section>
             </aside>
@@ -102,73 +257,97 @@ function AddMoviePage() {
                 <div className="add-movie-form-grid">
                   <label className="span-2">
                     <span>Tiêu đề phim *</span>
-                    <input placeholder="Nhập tên phim chính thức..." />
+                    <input name="title" placeholder="Nhập tên phim chính thức..." defaultValue={movieForm?.title || ""} disabled={isViewMode} />
                   </label>
 
                   <fieldset className="span-2 genre-picker">
-                    <legend>Thể loại (Chọn nhiều) *</legend>
+                    <legend>Thể loại (Chọn nhiều)</legend>
                     <div>
-                      {genres.map((genre) => (
-                        <button
-                          className={selectedGenres.includes(genre) ? "selected" : ""}
-                          key={genre}
-                          type="button"
-                          onClick={() => toggleGenre(genre)}
-                        >
-                          {genre}
+                      {selectedGenres.map((genreId) => {
+                        const genre = genres.find((item) => item.id === genreId);
+                        if (!genre) return null;
+
+                        return (
+                          <button
+                            className="selected"
+                            key={genre.id}
+                            type="button"
+                            onClick={() => {
+                              if (!isViewMode) setSelectedGenres([]);
+                            }}
+                            disabled={isViewMode}
+                          >
+                            {genre.name}
+                          </button>
+                        );
+                      })}
+                      {isAddingGenre && !isViewMode ? (
+                        <>
+                          <input
+                            value={newGenreName}
+                            onChange={(event) => setNewGenreName(event.target.value)}
+                            placeholder="Nhập tên thể loại..."
+                          />
+                          <button type="button" onClick={handleCreateGenre} disabled={isCreatingGenre}>
+                            {isCreatingGenre ? "Đang thêm..." : "Lưu"}
+                          </button>
+                          <button type="button" onClick={() => setIsAddingGenre(false)}>
+                            Hủy
+                          </button>
+                        </>
+                      ) : !isViewMode ? (
+                        <button className="add-genre" type="button" onClick={() => setIsAddingGenre(true)}>
+                          <Plus size={15} />
+                          Thêm mới
                         </button>
-                      ))}
-                      <button className="add-genre" type="button">
-                        <Plus size={15} />
-                        Thêm mới
-                      </button>
+                      ) : null}
                     </div>
-                    <small>{genreText || "Chưa chọn thể loại"}</small>
+                    <small>{genreText || "Chưa có thể loại nào"}</small>
                   </fieldset>
 
                   <label>
                     <span>Thời lượng (Phút) *</span>
                     <div className="duration-input">
-                      <input defaultValue="120" type="number" />
+                      <input name="durationMinutes" defaultValue={movieForm?.durationMinutes || "120"} type="number" disabled={isViewMode} />
                       <em>phút</em>
                     </div>
                   </label>
 
                   <label>
                     <span>Ngày khởi chiếu *</span>
-                    <input type="date" />
+                    <input name="releaseDate" type="date" defaultValue={inputDateValue(movieForm?.releaseDate)} disabled={isViewMode} />
                   </label>
 
                   <label>
                     <span>Đạo diễn</span>
-                    <input placeholder="Tên đạo diễn..." />
+                    <input name="director" placeholder="Tên đạo diễn..." defaultValue={movieForm?.director || ""} disabled={isViewMode} />
                   </label>
 
                   <label>
                     <span>Trailer URL (Youtube/Vimeo)</span>
                     <div className="trailer-input">
                       <LinkIcon size={18} />
-                      <input placeholder="https://..." type="url" />
+                      <input name="trailerUrl" placeholder="https://..." type="url" defaultValue={movieForm?.trailerUrl || ""} disabled={isViewMode} />
                     </div>
                   </label>
 
                   <label className="span-2">
                     <span>Diễn viên chính</span>
-                    <input placeholder="Ngăn cách bằng dấu phẩy (vd: Tom Cruise, Henry Cavill...)" />
+                    <input name="actors" placeholder="Ngăn cách bằng dấu phẩy (vd: Tom Cruise, Henry Cavill...)" defaultValue={movieForm?.actors || ""} disabled={isViewMode} />
                   </label>
 
                   <label className="span-2">
                     <span>Mô tả nội dung</span>
-                    <textarea rows="5" placeholder="Tóm tắt cốt truyện phim..." />
+                    <textarea name="description" rows="5" placeholder="Tóm tắt cốt truyện phim..." defaultValue={movieForm?.description || ""} disabled={isViewMode} />
                   </label>
                 </div>
               </div>
 
               <div className="add-movie-actions">
                 <Link className="cancel-add-movie" to="/movies">Hủy bỏ</Link>
-                <button className="save-add-movie" type="submit">
+                <button className="save-add-movie" type="submit" disabled={isViewMode}>
                   <Save size={18} />
-                  Lưu thông tin
+                  {isViewMode ? "Đang xem thông tin" : isEditMode ? "Lưu thay đổi" : "Lưu thông tin"}
                 </button>
               </div>
             </section>
@@ -249,6 +428,37 @@ function AddMovieTopbar() {
       </div>
     </header>
   );
+}
+
+function statusTextFromCode(status) {
+  if (status === "COMING_SOON") return "Sắp chiếu";
+  return "Đang chiếu";
+}
+
+function statusCodeFromText(status) {
+  return status === "Sắp chiếu" ? "COMING_SOON" : "NOW_SHOWING";
+}
+
+function inputDateValue(value) {
+  if (!value) return "";
+  return String(value).slice(0, 10);
+}
+
+function mergeGenres(existingGenres, movieGenres) {
+  const map = new Map();
+  [...asArray(existingGenres), ...asArray(movieGenres)].forEach((genre) => {
+    if (genre?.id) map.set(genre.id, genre);
+  });
+  return Array.from(map.values());
+}
+
+function findGenreByName(genres, name) {
+  const normalizedName = normalizeGenreName(name);
+  return genres.find((genre) => normalizeGenreName(genre.name) === normalizedName);
+}
+
+function normalizeGenreName(value = "") {
+  return value.trim().toLocaleLowerCase("vi-VN");
 }
 
 export default AddMoviePage;

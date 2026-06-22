@@ -193,6 +193,36 @@ a {
   padding: 14px;
 }
 
+.shared-admin-profile {
+  margin-top: auto;
+  border: 1px solid rgba(175, 135, 130, 0.18);
+  border-radius: 18px;
+  background: rgba(40, 42, 43, 0.86);
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.shared-admin-profile:hover {
+  border-color: rgba(255, 180, 170, 0.24);
+  background: rgba(51, 53, 53, 0.88);
+}
+
+.shared-admin-profile button {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  display: grid;
+  margin-left: auto;
+  place-items: center;
+}
+
+.shared-admin-profile button:hover {
+  background: rgba(229, 9, 20, 0.12);
+  color: var(--primary);
+}
+
 .admin-profile-card img,
 .topbar-avatar {
   border: 1px solid var(--outline-soft);
@@ -231,6 +261,32 @@ a {
   margin-left: 256px;
   display: flex;
   flex-direction: column;
+}
+
+.admin-layout-content > .admin-shell {
+  min-height: auto;
+  display: block;
+  background: transparent;
+}
+
+.admin-layout-content > .admin-shell > .admin-workspace {
+  width: 100%;
+  min-height: auto;
+  margin-left: 0;
+  display: block;
+}
+
+.admin-layout-content > .admin-shell .add-movie-topbar,
+.admin-layout-content > .admin-shell .admin-topbar {
+  display: none;
+}
+
+.shared-admin-topbar {
+  display: flex !important;
+}
+
+.shared-admin-sidebar {
+  display: flex;
 }
 
 .admin-topbar {
@@ -327,6 +383,8 @@ a {
 
 .admin-greeting strong {
   font-size: 14px;
+  color: var(--text);
+  font-weight: 800;
 }
 
 .admin-greeting span {

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Bell,
   CalendarDays,
@@ -18,48 +18,78 @@ import {
   AlertTriangle
 } from "lucide-react";
 import { Link } from "react-router-dom";
-
-const showtimes = [
-  {
-    id: "st-01",
-    time: "18:00 - 20:15",
-    date: "Hôm nay, 25/03/2024",
-    movie: "Dune: Hành Tinh Cát 2",
-    room: "Phòng 01 • Rạp Quận 1",
-    poster: "https://images.unsplash.com/photo-1509347528160-9a9e33742cdb?auto=format&fit=crop&w=240&q=85",
-    tickets: ["Thường", "VIP"],
-    price: "95.000đ - 145.000đ",
-    status: "Đang mở bán",
-    tone: "active"
-  },
-  {
-    id: "st-02",
-    time: "19:30 - 21:45",
-    date: "Hôm nay, 25/03/2024",
-    movie: "Kung Fu Panda 4",
-    room: "Phòng 02 • Rạp Quận 1",
-    poster: "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=240&q=85",
-    tickets: ["Thường", "Đôi (Sweetbox)"],
-    price: "85.000đ - 180.000đ",
-    status: "Trùng lặp",
-    tone: "conflict"
-  }
-];
+import { toast } from "react-toastify";
+import { adminCinemaApi, adminMovieApi, adminShowtimeApi } from "../api/adminApi";
+import { getErrorMessage } from "../api/axiosClient";
+import { asArray, formatCurrency, formatDate, formatTimeRange, toAbsoluteImage } from "../api/formatters";
 
 function ShowtimeManagementPage() {
-  const [showAlert, setShowAlert] = useState(true);
+  const [showAlert, setShowAlert] = useState(false);
+  const [showtimes, setShowtimes] = useState([]);
+  const [movies, setMovies] = useState([]);
+  const [cinemas, setCinemas] = useState([]);
+  const [filters, setFilters] = useState({ movieId: "all", cinemaId: "all", date: "" });
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const loadOptions = async () => {
+    try {
+      const [movieData, cinemaData] = await Promise.all([adminMovieApi.list(), adminCinemaApi.list()]);
+      setMovies(asArray(movieData));
+      setCinemas(asArray(cinemaData));
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  };
+
+  const loadShowtimes = async () => {
+    try {
+      setLoading(true);
+      const params = {
+        movieId: filters.movieId === "all" ? undefined : filters.movieId,
+        cinemaId: filters.cinemaId === "all" ? undefined : filters.cinemaId,
+        date: filters.date || undefined
+      };
+      const data = await adminShowtimeApi.list(params);
+      setShowtimes(asArray(data).map(mapShowtime));
+      setShowAlert(false);
+    } catch (error) {
+      setShowAlert(true);
+      toast.error(getErrorMessage(error));
+      setShowtimes([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadOptions();
+  }, []);
+
+  useEffect(() => {
+    loadShowtimes();
+  }, []);
+
+  const handleDelete = async (item) => {
+    try {
+      await adminShowtimeApi.remove(item.id);
+      toast.success("Thao tác thành công");
+      loadShowtimes();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  };
+
+  const visibleMovies = useMemo(() => movies.filter((movie) => movie.status !== "HIDDEN"), [movies]);
 
   return (
     <div className="admin-shell">
-      <ShowtimeSidebar />
       <div className="admin-workspace">
-        <ShowtimeTopbar />
         <main className="showtime-main">
           <section className="showtime-heading">
             <div>
               <h1>Quản lý lịch chiếu</h1>
-              <p>Điều phối và sắp xếp lịch chiếu phim</p>
+              <p>{loading ? "Đang tải dữ liệu..." : "Điều phối và sắp xếp lịch chiếu phim"}</p>
             </div>
             <Link to="/showtimes/new">
               <Plus size={20} />
@@ -70,27 +100,27 @@ function ShowtimeManagementPage() {
           <section className="showtime-filter-bar">
             <label>
               <span><Film size={18} /> Lọc theo phim</span>
-              <select defaultValue="all">
+              <select value={filters.movieId} onChange={(event) => setFilters((current) => ({ ...current, movieId: event.target.value }))}>
                 <option value="all">Tất cả phim</option>
-                <option>Hào Quang Rực Rỡ</option>
-                <option>Dune: Hành Tinh Cát 2</option>
-                <option>Kung Fu Panda 4</option>
+                {visibleMovies.map((movie) => (
+                  <option value={movie.id} key={movie.id}>{movie.title}</option>
+                ))}
               </select>
             </label>
             <label>
               <span><Warehouse size={18} /> Lọc theo rạp</span>
-              <select defaultValue="all">
+              <select value={filters.cinemaId} onChange={(event) => setFilters((current) => ({ ...current, cinemaId: event.target.value }))}>
                 <option value="all">Tất cả cụm rạp</option>
-                <option>CineVe Quận 1</option>
-                <option>CineVe Vincom Plaza</option>
-                <option>CineVe Landmark 81</option>
+                {cinemas.map((cinema) => (
+                  <option value={cinema.id} key={cinema.id}>{cinema.name}</option>
+                ))}
               </select>
             </label>
             <label>
               <span><CalendarDays size={18} /> Chọn ngày</span>
-              <input type="date" defaultValue="2024-03-25" />
+              <input type="date" value={filters.date} onChange={(event) => setFilters((current) => ({ ...current, date: event.target.value }))} />
             </label>
-            <button type="button" className="showtime-filter-button">Lọc dữ liệu</button>
+            <button type="button" className="showtime-filter-button" onClick={loadShowtimes}>Lọc dữ liệu</button>
           </section>
 
           {showAlert && (
@@ -98,7 +128,7 @@ function ShowtimeManagementPage() {
               <AlertTriangle size={32} />
               <div>
                 <h2>Cảnh báo trùng lặp!</h2>
-                <p>Suất chiếu lúc 19:30 tại Phòng 02 (Quận 1) đang trùng với thời gian dọn dẹp hoặc suất chiếu hiện có.</p>
+                <p>Backend trả lỗi khi tải hoặc xử lý lịch chiếu. Vui lòng kiểm tra dữ liệu và thử lại.</p>
               </div>
               <button type="button" onClick={() => setShowAlert(false)} aria-label="Đóng cảnh báo">
                 <X size={20} />
@@ -120,7 +150,7 @@ function ShowtimeManagementPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {showtimes.map((item) => (
+                  {showtimes.length ? showtimes.map((item) => (
                     <tr className={item.tone === "conflict" ? "conflict" : ""} key={item.id}>
                       <td>
                         <strong>{item.time}</strong>
@@ -152,11 +182,15 @@ function ShowtimeManagementPage() {
                       <td>
                         <div className="showtime-actions">
                           <button type="button" aria-label={`Sửa ${item.movie}`}><Pencil size={17} /></button>
-                          <button type="button" aria-label={`Xóa ${item.movie}`}><Trash2 size={17} /></button>
+                          <button type="button" aria-label={`Xóa ${item.movie}`} onClick={() => handleDelete(item)}><Trash2 size={17} /></button>
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  )) : (
+                    <tr>
+                      <td colSpan="6">Chưa có dữ liệu</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -226,58 +260,31 @@ function ShowtimeTopbar() {
 }
 
 function AddShowtimeModal({ onClose }) {
-  return (
-    <div className="showtime-modal">
-      <button className="showtime-modal-overlay" type="button" aria-label="Đóng" onClick={onClose} />
-      <section className="showtime-modal-panel">
-        <header>
-          <h2>Thêm suất chiếu mới</h2>
-          <button type="button" onClick={onClose} aria-label="Đóng"><X size={22} /></button>
-        </header>
-        <form onSubmit={(event) => event.preventDefault()}>
-          <label className="span-2">
-            <span>Chọn phim</span>
-            <select defaultValue="Dune: Hành Tinh Cát 2">
-              <option>Dune: Hành Tinh Cát 2</option>
-              <option>Kung Fu Panda 4</option>
-              <option>Hào Quang Rực Rỡ</option>
-            </select>
-          </label>
-          <label>
-            <span>Rạp chiếu</span>
-            <select defaultValue="CineVe Quận 1">
-              <option>CineVe Quận 1</option>
-              <option>CineVe Vincom Plaza</option>
-            </select>
-          </label>
-          <label>
-            <span>Phòng chiếu</span>
-            <select defaultValue="Phòng 01 (IMAX)">
-              <option>Phòng 01 (IMAX)</option>
-              <option>Phòng 02 (Standard)</option>
-              <option>Phòng 03 (Standard)</option>
-              <option>Phòng VIP (L'Amour)</option>
-            </select>
-          </label>
-          <div className="span-2 showtime-time-grid">
-            <label><span>Ngày chiếu</span><input type="date" /></label>
-            <label><span>Bắt đầu</span><input type="time" /></label>
-            <label><span>Kết thúc dự kiến</span><input type="time" /></label>
-          </div>
-          <fieldset className="span-2 showtime-price-grid">
-            <legend>Cấu hình giá vé (VNĐ)</legend>
-            <label><span>Giá thường</span><input placeholder="95000" type="number" /></label>
-            <label><span>Giá VIP</span><input placeholder="145000" type="number" /></label>
-            <label><span>Giá đôi</span><input placeholder="180000" type="number" /></label>
-          </fieldset>
-          <footer className="span-2">
-            <button type="button" onClick={onClose}>Hủy bỏ</button>
-            <button type="submit" onClick={onClose}>Lưu suất chiếu</button>
-          </footer>
-        </form>
-      </section>
-    </div>
-  );
+  return null;
+}
+
+function mapShowtime(item) {
+  return {
+    id: item.id,
+    time: formatTimeRange(item.startTime, item.endTime),
+    date: formatDate(item.startTime),
+    movie: item.movieTitle || "--",
+    room: `${item.roomName || "--"} • ${item.cinemaName || "--"}`,
+    poster: toAbsoluteImage(item.posterUrl),
+    tickets: ["Thường", "VIP", "Đôi"],
+    price: `${formatCurrency(item.normalSeatPrice)} - ${formatCurrency(item.vipSeatPrice)}`,
+    status: showtimeStatusLabel(item.status),
+    tone: item.status === "CANCELLED" ? "conflict" : "active"
+  };
+}
+
+function showtimeStatusLabel(status) {
+  return {
+    OPEN: "Đang mở bán",
+    CLOSED: "Đã đóng",
+    CANCELLED: "Đã hủy",
+    FINISHED: "Đã kết thúc"
+  }[status] || "--";
 }
 
 export default ShowtimeManagementPage;

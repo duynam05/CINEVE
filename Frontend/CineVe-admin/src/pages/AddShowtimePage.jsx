@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   Bell,
   CalendarDays,
@@ -14,43 +14,96 @@ import {
   Warehouse
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { toast } from "react-toastify";
+import { adminCinemaApi, adminMovieApi, adminRoomApi, adminShowtimeApi } from "../api/adminApi";
+import { getErrorMessage } from "../api/axiosClient";
+import { asArray } from "../api/formatters";
 
 const adminAvatar =
   "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=240&q=85";
 
 function AddShowtimePage() {
+  const [movies, setMovies] = useState([]);
+  const [cinemas, setCinemas] = useState([]);
+  const [rooms, setRooms] = useState([]);
+  const [selectedCinemaId, setSelectedCinemaId] = useState("");
+  const [selectedMovieId, setSelectedMovieId] = useState("");
+
+  useEffect(() => {
+    Promise.all([adminMovieApi.list(), adminCinemaApi.list()])
+      .then(([movieData, cinemaData]) => {
+        setMovies(asArray(movieData));
+        setCinemas(asArray(cinemaData));
+      })
+      .catch((error) => toast.error(getErrorMessage(error)));
+  }, []);
+
+  useEffect(() => {
+    if (!selectedCinemaId) {
+      setRooms([]);
+      return;
+    }
+
+    adminRoomApi.list({ cinemaId: selectedCinemaId })
+      .then((data) => setRooms(asArray(data)))
+      .catch((error) => toast.error(getErrorMessage(error)));
+  }, [selectedCinemaId]);
+
+  const selectedMovie = movies.find((movie) => movie.id === selectedMovieId);
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const date = formData.get("date");
+    const start = formData.get("startTime");
+    const end = formData.get("endTime");
+
+    try {
+      await adminShowtimeApi.create({
+        movieId: formData.get("movieId") || "",
+        roomId: formData.get("roomId") || "",
+        startTime: `${date}T${start}:00`,
+        endTime: `${date}T${end}:00`,
+        normalSeatPrice: Number(formData.get("normalSeatPrice") || 0),
+        vipSeatPrice: Number(formData.get("vipSeatPrice") || 0),
+        coupleSeatPrice: Number(formData.get("coupleSeatPrice") || formData.get("vipSeatPrice") || 0),
+        status: "OPEN"
+      });
+      toast.success("Thao tác thành công");
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  };
+
   return (
     <div className="admin-shell">
-      <AddShowtimeSidebar />
       <div className="admin-workspace">
-        <AddShowtimeTopbar />
         <main className="add-showtime-main">
           <section className="add-showtime-heading">
             <h1>Thêm suất chiếu</h1>
             <p>Thiết lập thời gian và rạp chiếu cho phim mới trong hệ thống.</p>
           </section>
 
-          <form className="add-showtime-form" onSubmit={(event) => event.preventDefault()}>
+          <form className="add-showtime-form" onSubmit={handleSubmit}>
             <div className="add-showtime-grid">
               <article className="add-showtime-card primary">
                 <label>
                   <span><Film size={18} /> Chọn phim</span>
-                  <select defaultValue="">
+                  <select name="movieId" value={selectedMovieId} onChange={(event) => setSelectedMovieId(event.target.value)}>
                     <option value="" disabled>Chọn phim đang hoặc sắp chiếu</option>
-                    <option value="1">Dune: Part Two</option>
-                    <option value="2">Godzilla x Kong: The New Empire</option>
-                    <option value="3">Kung Fu Panda 4</option>
-                    <option value="4">The First Omen</option>
+                    {movies.map((movie) => (
+                      <option value={movie.id} key={movie.id}>{movie.title}</option>
+                    ))}
                   </select>
                 </label>
                 <div className="movie-meta-preview">
                   <div>
                     <small>Thời lượng</small>
-                    <strong>166 phút</strong>
+                    <strong>{selectedMovie?.durationMinutes || 0} phút</strong>
                   </div>
                   <div>
                     <small>Độ tuổi</small>
-                    <strong>T13</strong>
+                    <strong>{selectedMovie?.ageRating || "T13"}</strong>
                   </div>
                 </div>
               </article>
@@ -58,18 +111,18 @@ function AddShowtimePage() {
               <article className="add-showtime-card secondary">
                 <label>
                   <span><Clapperboard size={18} /> Rạp & phòng chiếu</span>
-                  <select defaultValue="">
+                  <select value={selectedCinemaId} onChange={(event) => setSelectedCinemaId(event.target.value)}>
                     <option value="" disabled>Chọn rạp chiếu</option>
-                    <option value="c1">CineVe Hồ Chí Minh</option>
-                    <option value="c2">CineVe Hà Nội</option>
-                    <option value="c3">CineVe Đà Nẵng</option>
+                    {cinemas.map((cinema) => (
+                      <option value={cinema.id} key={cinema.id}>{cinema.name}</option>
+                    ))}
                   </select>
                 </label>
-                <select defaultValue="">
+                <select name="roomId" defaultValue="">
                   <option value="" disabled>Chọn phòng</option>
-                  <option value="r1">Phòng 01 (IMAX)</option>
-                  <option value="r2">Phòng 02 (VIP)</option>
-                  <option value="r3">Phòng 03 (Gold Class)</option>
+                  {rooms.map((room) => (
+                    <option value={room.id} key={room.id}>{room.name} ({room.type})</option>
+                  ))}
                 </select>
               </article>
 
@@ -80,11 +133,15 @@ function AddShowtimePage() {
                 <div className="add-showtime-time-grid">
                   <label>
                     <span>Ngày chiếu</span>
-                    <input type="date" />
+                    <input name="date" type="date" />
                   </label>
                   <label>
                     <span>Giờ bắt đầu</span>
-                    <input type="time" />
+                    <input name="startTime" type="time" />
+                  </label>
+                  <label>
+                    <span>Giờ kết thúc</span>
+                    <input name="endTime" type="time" />
                   </label>
                   <label>
                     <span>Ngôn ngữ & định dạng</span>
@@ -108,8 +165,8 @@ function AddShowtimePage() {
                   <span><Ticket size={18} /> Bảng giá vé (VNĐ)</span>
                 </header>
                 <div className="add-showtime-price-grid">
-                  <PriceInput title="Standard" subtitle="Ghế thường" placeholder="85000" />
-                  <PriceInput title="VIP / Gold Class" subtitle="Ghế cao cấp" placeholder="150000" highlighted />
+                  <PriceInput name="normalSeatPrice" title="Standard" subtitle="Ghế thường" placeholder="85000" />
+                  <PriceInput name="vipSeatPrice" title="VIP / Gold Class" subtitle="Ghế cao cấp" placeholder="150000" highlighted />
                 </div>
               </article>
             </div>
@@ -128,7 +185,7 @@ function AddShowtimePage() {
   );
 }
 
-function PriceInput({ title, subtitle, placeholder, highlighted = false }) {
+function PriceInput({ name, title, subtitle, placeholder, highlighted = false }) {
   return (
     <label className={highlighted ? "price-input highlighted" : "price-input"}>
       <span>
@@ -138,7 +195,7 @@ function PriceInput({ title, subtitle, placeholder, highlighted = false }) {
           <small>{subtitle}</small>
         </span>
       </span>
-      <input placeholder={placeholder} type="number" />
+      <input name={name} placeholder={placeholder} type="number" />
     </label>
   );
 }

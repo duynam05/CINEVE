@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Bell,
   CalendarDays,
@@ -10,7 +10,6 @@ import {
   LayoutDashboard,
   LogOut,
   MoreVertical,
-  Percent,
   PlusCircle,
   Popcorn,
   Search,
@@ -20,63 +19,69 @@ import {
   Warehouse
 } from "lucide-react";
 import { Link } from "react-router-dom";
-
-const promotions = [
-  {
-    code: "SUMMER2024",
-    name: "Chào hè rực rỡ",
-    description: "Ưu đãi cho phim hành động",
-    type: "Phần trăm",
-    value: "20%",
-    minOrder: "200.000đ",
-    start: "01/06/2024",
-    end: "30/08/2024",
-    used: 325,
-    limit: 500,
-    status: "Hoạt động",
-    tone: "active"
-  },
-  {
-    code: "WELCOMEBACK",
-    name: "Khách hàng cũ",
-    description: "Tri ân khách hàng quay lại",
-    type: "Tiền mặt",
-    value: "50.000đ",
-    minOrder: "150.000đ",
-    start: "15/05/2024",
-    end: "15/06/2024",
-    used: 980,
-    limit: 1000,
-    status: "Sắp hết",
-    tone: "warning"
-  },
-  {
-    code: "LUNAR2024",
-    name: "Tết Nguyên Đán",
-    description: "Lì xì đầu năm",
-    type: "Phần trăm",
-    value: "30%",
-    minOrder: "0đ",
-    start: "01/01/2024",
-    end: "28/02/2024",
-    used: 500,
-    limit: 500,
-    status: "Hết hạn",
-    tone: "expired"
-  }
-];
+import { toast } from "react-toastify";
+import { adminCouponApi } from "../api/adminApi";
+import { getErrorMessage } from "../api/axiosClient";
+import { activeStatusLabel, activeTone, asArray, formatCompactCurrency, formatCurrency, formatDate } from "../api/formatters";
 
 function PromotionManagementPage() {
+  const [promotions, setPromotions] = useState([]);
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
+
+  const loadPromotions = async () => {
+    try {
+      setLoading(true);
+      const data = await adminCouponApi.list();
+      setPromotions(asArray(data).map(mapPromotion));
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+      setPromotions([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadPromotions();
+  }, []);
+
+  const visiblePromotions = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    return promotions.filter((promo) => {
+      const matchText = !normalized || [promo.code, promo.name, promo.description].join(" ").toLowerCase().includes(normalized);
+      const matchStatus = statusFilter === "all" || promo.status === statusFilter;
+      return matchText && matchStatus;
+    });
+  }, [promotions, query, statusFilter]);
+
+  const stats = useMemo(() => {
+    const active = promotions.filter((promo) => promo.tone === "active").length;
+    const warning = promotions.filter((promo) => promo.tone === "warning").length;
+    const used = promotions.reduce((sum, promo) => sum + promo.used, 0);
+    const saved = promotions.reduce((sum, promo) => sum + Number(promo.rawDiscount || 0) * promo.used, 0);
+    return { active, warning, used, saved };
+  }, [promotions]);
+
+  const handleDelete = async (promo) => {
+    try {
+      await adminCouponApi.remove(promo.id);
+      toast.success("Thao tác thành công");
+      loadPromotions();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  };
+
   return (
     <div className="admin-shell">
-      <PromotionSidebar />
       <div className="admin-workspace">
-        <PromotionTopbar />
         <main className="promotion-main">
           <section className="promotion-heading">
             <div>
               <h1>Quản lý mã giảm giá</h1>
-              <p>Thiết lập các chương trình khuyến mãi và voucher cho hệ thống.</p>
+              <p>{loading ? "Đang tải dữ liệu..." : "Thiết lập các chương trình khuyến mãi và voucher cho hệ thống."}</p>
             </div>
             <Link className="promotion-create-button" to="/promotions/new">
               <PlusCircle size={19} />
@@ -85,24 +90,24 @@ function PromotionManagementPage() {
           </section>
 
           <section className="promotion-stats">
-            <PromotionStat label="Đang hoạt động" value="12" tone="red" />
-            <PromotionStat label="Sắp hết hạn" value="04" tone="gold" />
-            <PromotionStat label="Tổng lượt sử dụng" value="1.2k" tone="silver" />
-            <PromotionStat label="Tiết kiệm cho khách" value="45.2M" tone="muted" />
+            <PromotionStat label="Đang hoạt động" value={stats.active} tone="red" />
+            <PromotionStat label="Sắp hết hạn" value={stats.warning} tone="gold" />
+            <PromotionStat label="Tổng lượt sử dụng" value={stats.used} tone="silver" />
+            <PromotionStat label="Tiết kiệm cho khách" value={formatCompactCurrency(stats.saved)} tone="muted" />
           </section>
 
           <section className="promotion-table-card">
             <header>
               <label className="promotion-search">
                 <Search size={18} />
-                <input placeholder="Tìm mã hoặc tên chương trình..." />
+                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm mã hoặc tên chương trình..." />
               </label>
               <div className="promotion-filter-actions">
-                <select defaultValue="all">
+                <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
                   <option value="all">Tất cả trạng thái</option>
-                  <option>Đang hoạt động</option>
-                  <option>Tạm dừng</option>
-                  <option>Hết hạn</option>
+                  <option value="Hoạt động">Đang hoạt động</option>
+                  <option value="Tạm dừng">Tạm dừng</option>
+                  <option value="Hết hạn">Hết hạn</option>
                 </select>
                 <button type="button" aria-label="Lọc">
                   <Filter size={18} />
@@ -126,15 +131,19 @@ function PromotionManagementPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {promotions.map((promo) => (
-                    <PromotionRow promo={promo} key={promo.code} />
-                  ))}
+                  {visiblePromotions.length ? visiblePromotions.map((promo) => (
+                    <PromotionRow promo={promo} key={promo.code} onDelete={handleDelete} />
+                  )) : (
+                    <tr>
+                      <td colSpan="9">Chưa có dữ liệu</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
 
             <footer className="promotion-pagination">
-              <p>Hiển thị 1-10 trên 45 mã</p>
+              <p>Hiển thị 1-{visiblePromotions.length} trên {promotions.length} mã</p>
               <div>
                 <button type="button" aria-label="Trang trước">
                   <ChevronLeft size={16} />
@@ -163,8 +172,8 @@ function PromotionStat({ label, value, tone }) {
   );
 }
 
-function PromotionRow({ promo }) {
-  const progress = Math.min(100, Math.round((promo.used / promo.limit) * 100));
+function PromotionRow({ promo, onDelete }) {
+  const progress = Math.min(100, Math.round((promo.used / Math.max(promo.limit, 1)) * 100));
 
   return (
     <tr className={promo.tone === "expired" ? "expired" : ""}>
@@ -203,7 +212,7 @@ function PromotionRow({ promo }) {
         </span>
       </td>
       <td>
-        <button className="promotion-more" type="button" aria-label={`Thao tác ${promo.code}`}>
+        <button className="promotion-more" type="button" aria-label={`Thao tác ${promo.code}`} onClick={() => onDelete(promo)}>
           <MoreVertical size={18} />
         </button>
       </td>
@@ -272,6 +281,31 @@ function PromotionTopbar() {
       </div>
     </header>
   );
+}
+
+function mapPromotion(coupon) {
+  const expired = coupon.endTime && new Date(coupon.endTime).getTime() < Date.now();
+  const usageLimit = coupon.usageLimit ?? 1;
+  const used = coupon.usedCount ?? 0;
+  const nearlyFull = used / Math.max(usageLimit, 1) >= 0.8;
+  const tone = expired ? "expired" : nearlyFull ? "warning" : activeTone(coupon.active);
+
+  return {
+    id: coupon.id,
+    code: coupon.code || "--",
+    name: coupon.name || "--",
+    description: coupon.description || "--",
+    type: coupon.type === "FIXED_AMOUNT" ? "Tiền mặt" : "Phần trăm",
+    value: coupon.type === "FIXED_AMOUNT" ? formatCurrency(coupon.discountValue) : `${coupon.discountValue ?? 0}%`,
+    rawDiscount: coupon.discountValue,
+    minOrder: formatCurrency(coupon.minOrderAmount),
+    start: formatDate(coupon.startTime),
+    end: formatDate(coupon.endTime),
+    used,
+    limit: usageLimit,
+    status: expired ? "Hết hạn" : activeStatusLabel(Boolean(coupon.active)),
+    tone
+  };
 }
 
 export default PromotionManagementPage;

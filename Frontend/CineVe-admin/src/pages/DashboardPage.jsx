@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { toast } from "react-toastify";
 import {
   Bell,
   CalendarDays,
@@ -13,11 +14,22 @@ import {
   Settings,
   ShoppingCart,
   Ticket,
-  UserRound,
   Users,
   Wallet,
   Warehouse
 } from "lucide-react";
+import { adminBookingApi, adminDashboardApi } from "../api/adminApi";
+import { getErrorMessage } from "../api/axiosClient";
+import {
+  asArray,
+  bookingStatusLabel,
+  bookingTone,
+  formatCompactCurrency,
+  formatCurrency,
+  formatDateTime,
+  getInitials,
+  toAbsoluteImage
+} from "../api/formatters";
 
 const adminAvatar =
   "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=240&q=85";
@@ -33,15 +45,7 @@ const sidebarItems = [
   { label: "Mã giảm giá", icon: Ticket, to: "/promotions" }
 ];
 
-const stats = [
-  { label: "Tổng phim", value: "1,284", change: "+12%", tone: "up", icon: Film },
-  { label: "Người dùng", value: "42,509", change: "+8%", tone: "up", icon: Users },
-  { label: "Tổng đơn hàng", value: "8,122", change: "-2%", tone: "down", icon: ShoppingCart },
-  { label: "Doanh thu (VND)", value: "2.4B", change: "+15%", tone: "up", icon: Wallet, highlight: true },
-  { label: "Vé bán hôm nay", value: "1,452", change: "+24%", tone: "up", icon: Ticket }
-];
-
-const revenueBars = [
+const fallbackRevenueBars = [
   { day: "Thứ 2", value: "140M", height: 40 },
   { day: "Thứ 3", value: "210M", height: 65 },
   { day: "Thứ 4", value: "180M", height: 50 },
@@ -51,55 +55,69 @@ const revenueBars = [
   { day: "Chủ nhật", value: "380M", height: 95 }
 ];
 
-const topMovies = [
+const fallbackTopMovies = [
   {
-    title: "Avatar: The Way of Water",
-    revenue: "850M",
-    percent: 85,
+    title: "Chưa có dữ liệu",
+    revenue: "0đ",
+    percent: 12,
     tone: "red",
     image: "https://images.unsplash.com/photo-1509347528160-9a9e33742cdb?auto=format&fit=crop&w=320&q=85"
-  },
-  {
-    title: "John Wick: Chapter 4",
-    revenue: "720M",
-    percent: 72,
-    tone: "gold",
-    image: "https://images.unsplash.com/photo-1604975701397-6365ccbd028a?auto=format&fit=crop&w=320&q=85"
-  },
-  {
-    title: "Oppenheimer",
-    revenue: "680M",
-    percent: 68,
-    tone: "silver",
-    image: "https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=320&q=85"
-  },
-  {
-    title: "The Super Mario Bros.",
-    revenue: "600M",
-    percent: 60,
-    tone: "red",
-    image: "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=320&q=85"
   }
 ];
 
-const orders = [
-  { id: "#CB-9021", customer: "Nguyễn Văn Tú", initials: "NT", movie: "Avatar 2 (3D)", cinema: "CGV Vincom Đồng Khởi", total: "240,000đ", status: "Hoàn tất", tone: "success" },
-  { id: "#CB-9022", customer: "Lê Minh Hoàng", initials: "LH", movie: "John Wick 4", cinema: "Galaxy Nguyễn Du", total: "180,000đ", status: "Đang chờ", tone: "pending" },
-  { id: "#CB-9023", customer: "Phan Anh", initials: "PA", movie: "Oppenheimer", cinema: "Lotte Cinema Q7", total: "350,000đ", status: "Hoàn tất", tone: "success" },
-  { id: "#CB-9024", customer: "Mai Lan", initials: "ML", movie: "Mario Bros", cinema: "BHD Bitexco", total: "120,000đ", status: "Đã hủy", tone: "cancelled" }
+const fallbackOrders = [
+  { id: "--", customer: "Chưa có dữ liệu", initials: "--", movie: "--", cinema: "--", total: "0đ", status: "--", tone: "pending" }
 ];
 
 function DashboardPage() {
+  const [summary, setSummary] = useState({});
+  const [revenueBars, setRevenueBars] = useState(fallbackRevenueBars);
+  const [topMovies, setTopMovies] = useState(fallbackTopMovies);
+  const [orders, setOrders] = useState(fallbackOrders);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadDashboard = async () => {
+      try {
+        const [summaryData, revenueData, topMovieData, bookingData] = await Promise.all([
+          adminDashboardApi.summary(),
+          adminDashboardApi.revenueByDay(),
+          adminDashboardApi.topMovies({ limit: 5 }),
+          adminBookingApi.list()
+        ]);
+
+        if (!mounted) return;
+
+        setSummary(summaryData || {});
+        setRevenueBars(mapRevenueBars(revenueData));
+        setTopMovies(mapTopMovies(topMovieData));
+        setOrders(mapRecentOrders(bookingData));
+      } catch (error) {
+        toast.error(getErrorMessage(error));
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    loadDashboard();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const stats = useMemo(() => mapSummaryStats(summary), [summary]);
+
   return (
     <div className="admin-shell">
-      <AdminSidebar />
       <div className="admin-workspace">
-        <AdminTopbar />
         <main className="dashboard-main">
           <header className="dashboard-heading">
             <div>
               <h1>Dashboard</h1>
-              <p>Tổng quan hoạt động của hệ thống</p>
+              <p>{loading ? "Đang tải dữ liệu..." : "Tổng quan hoạt động của hệ thống"}</p>
             </div>
           </header>
 
@@ -119,11 +137,11 @@ function DashboardPage() {
           </section>
 
           <section className="dashboard-grid">
-            <RevenueChart />
-            <TopMovies />
+            <RevenueChart revenueBars={revenueBars} />
+            <TopMovies topMovies={topMovies} />
           </section>
 
-          <RecentOrders />
+          <RecentOrders orders={orders} />
         </main>
         <AdminFooter />
       </div>
@@ -182,7 +200,7 @@ function AdminTopbar() {
   );
 }
 
-function RevenueChart() {
+function RevenueChart({ revenueBars }) {
   return (
     <section className="admin-glass revenue-panel">
       <div className="panel-heading">
@@ -213,7 +231,7 @@ function RevenueChart() {
   );
 }
 
-function TopMovies() {
+function TopMovies({ topMovies }) {
   return (
     <section className="admin-glass top-movies-panel">
       <h2>Phim doanh thu cao</h2>
@@ -236,7 +254,7 @@ function TopMovies() {
   );
 }
 
-function RecentOrders() {
+function RecentOrders({ orders }) {
   return (
     <section className="admin-glass recent-orders">
       <div className="orders-heading">
@@ -261,7 +279,7 @@ function RecentOrders() {
           </thead>
           <tbody>
             {orders.map((order) => (
-              <tr key={order.id}>
+              <tr key={`${order.id}-${order.customer}`}>
                 <td className="order-id">{order.id}</td>
                 <td>
                   <span className="customer-cell">
@@ -303,6 +321,77 @@ function AdminFooter() {
       <p>© 2026 CineVe. Trải nghiệm điện ảnh đỉnh cao.</p>
     </footer>
   );
+}
+
+function mapSummaryStats(summary = {}) {
+  return [
+    { label: "Tổng phim", value: String(summary.totalMovies ?? 0), change: "+0%", tone: "up", icon: Film },
+    { label: "Người dùng", value: String(summary.totalUsers ?? 0), change: "+0%", tone: "up", icon: Users },
+    { label: "Tổng đơn hàng", value: String(summary.totalBookings ?? 0), change: "+0%", tone: "up", icon: ShoppingCart },
+    {
+      label: "Doanh thu (VND)",
+      value: formatCompactCurrency(summary.totalRevenue),
+      change: "+0%",
+      tone: "up",
+      icon: Wallet,
+      highlight: true
+    },
+    { label: "Vé đã bán", value: String(summary.totalTicketsSold ?? 0), change: "+0%", tone: "up", icon: Ticket }
+  ];
+}
+
+function mapRevenueBars(data) {
+  const items = asArray(data).slice(-7);
+  if (!items.length) return fallbackRevenueBars;
+
+  const max = Math.max(...items.map((item) => Number(item.revenue ?? 0)), 1);
+
+  return items.map((item, index) => ({
+    day: formatDayLabel(item.date),
+    value: formatCompactCurrency(item.revenue),
+    height: Math.max(12, Math.round((Number(item.revenue ?? 0) / max) * 95)),
+    active: index === items.length - 1
+  }));
+}
+
+function mapTopMovies(data) {
+  const items = asArray(data);
+  if (!items.length) return fallbackTopMovies;
+
+  const max = Math.max(...items.map((item) => Number(item.seatRevenue ?? 0)), 1);
+  const tones = ["red", "gold", "silver", "red", "gold"];
+
+  return items.map((item, index) => ({
+    title: item.movieTitle || "--",
+    revenue: formatCompactCurrency(item.seatRevenue),
+    percent: Math.max(8, Math.round((Number(item.seatRevenue ?? 0) / max) * 100)),
+    tone: tones[index % tones.length],
+    image: toAbsoluteImage(item.posterUrl)
+  }));
+}
+
+function mapRecentOrders(data) {
+  const items = asArray(data).slice(0, 6);
+  if (!items.length) return fallbackOrders;
+
+  return items.map((item) => ({
+    id: item.code || item.id || "--",
+    customer: item.userFullName || item.userEmail || "--",
+    initials: getInitials(item.userFullName || item.userEmail),
+    movie: item.showtime?.movieTitle || "--",
+    cinema: item.showtime?.cinemaName || "--",
+    total: formatCurrency(item.totalAmount),
+    status: bookingStatusLabel(item.status),
+    tone: bookingTone(item.status),
+    time: formatDateTime(item.createdAt)
+  }));
+}
+
+function formatDayLabel(value) {
+  if (!value) return "--";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "--";
+  return new Intl.DateTimeFormat("vi-VN", { weekday: "short" }).format(date);
 }
 
 export default DashboardPage;

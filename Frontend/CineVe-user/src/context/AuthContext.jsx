@@ -1,4 +1,5 @@
-import { createContext, useContext, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { authApi } from "../api/clientApi";
 
 const AuthContext = createContext(null);
 
@@ -7,6 +8,29 @@ export function AuthProvider({ children }) {
     const rawUser = localStorage.getItem("cineve_user");
     return rawUser ? JSON.parse(rawUser) : null;
   });
+  const [bootstrapping, setBootstrapping] = useState(Boolean(localStorage.getItem("cineve_access_token")));
+
+  useEffect(() => {
+    const token = localStorage.getItem("cineve_access_token");
+
+    if (!token) {
+      setBootstrapping(false);
+      return;
+    }
+
+    authApi.me()
+      .then((currentUser) => {
+        localStorage.setItem("cineve_user", JSON.stringify(currentUser));
+        setUser(currentUser);
+      })
+      .catch(() => {
+        localStorage.removeItem("cineve_access_token");
+        localStorage.removeItem("cineve_refresh_token");
+        localStorage.removeItem("cineve_user");
+        setUser(null);
+      })
+      .finally(() => setBootstrapping(false));
+  }, []);
 
   const signIn = (authResult) => {
     if (authResult?.token) {
@@ -30,7 +54,12 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  const value = useMemo(() => ({ user, signIn, signOut }), [user]);
+  const updateUser = (nextUser) => {
+    localStorage.setItem("cineve_user", JSON.stringify(nextUser));
+    setUser(nextUser);
+  };
+
+  const value = useMemo(() => ({ user, signIn, signOut, updateUser, bootstrapping }), [user, bootstrapping]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

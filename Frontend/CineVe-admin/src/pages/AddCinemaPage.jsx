@@ -18,6 +18,9 @@ import {
   Warehouse
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { toast } from "react-toastify";
+import { adminCinemaApi } from "../api/adminApi";
+import { getErrorMessage } from "../api/axiosClient";
 
 const adminAvatar =
   "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=240&q=85";
@@ -45,23 +48,36 @@ function AddCinemaPage() {
     setter(URL.createObjectURL(file));
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     setIsSaving(true);
-    window.clearTimeout(window.__cineveAddCinemaTimer);
-    window.__cineveAddCinemaTimer = window.setTimeout(() => {
-      setIsSaving(false);
+    const formData = new FormData(event.currentTarget);
+    const payload = {
+      name: formData.get("name") || "",
+      address: formData.get("address") || "",
+      city: formData.get("city") || "",
+      phone: formData.get("phone") || "",
+      email: formData.get("email") || "",
+      description: formData.get("description") || "",
+      status: "ACTIVE"
+    };
+
+    try {
+      await adminCinemaApi.create(payload);
+      toast.success("Thao tác thành công");
       setShowToast(true);
       window.clearTimeout(window.__cineveAddCinemaToast);
       window.__cineveAddCinemaToast = window.setTimeout(() => setShowToast(false), 3000);
-    }, 900);
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
     <div className="admin-shell">
-      <AddCinemaSidebar />
       <div className="admin-workspace">
-        <AddCinemaTopbar />
         <main className="add-cinema-main">
           <form className="add-cinema-layout" id="cinema-form" onSubmit={handleSubmit}>
             <section className="add-cinema-left">
@@ -73,28 +89,28 @@ function AddCinemaPage() {
                 <div className="add-cinema-grid">
                   <label>
                     <span>Tên rạp chiếu phim</span>
-                    <input placeholder="Nhập tên rạp..." />
+                    <input name="name" placeholder="Nhập tên rạp..." />
                   </label>
                   <label>
                     <span>Thành phố / Tỉnh</span>
-                    <select defaultValue="">
+                    <select name="city" defaultValue="">
                       <option value="" disabled>Chọn địa điểm</option>
-                      <option value="hanoi">Hà Nội</option>
-                      <option value="hcm">TP. Hồ Chí Minh</option>
-                      <option value="danang">Đà Nẵng</option>
+                      <option value="Hà Nội">Hà Nội</option>
+                      <option value="TP. Hồ Chí Minh">TP. Hồ Chí Minh</option>
+                      <option value="Đà Nẵng">Đà Nẵng</option>
                     </select>
                   </label>
                   <label className="span-2">
                     <span>Địa chỉ chi tiết</span>
-                    <input placeholder="Số nhà, tên đường, phường/xã..." />
+                    <input name="address" placeholder="Số nhà, tên đường, phường/xã..." />
                   </label>
                   <label>
                     <span>Số điện thoại liên hệ</span>
-                    <input placeholder="024 XXXX XXXX" type="tel" />
+                    <input name="phone" placeholder="024 XXXX XXXX" type="tel" />
                   </label>
                   <label>
                     <span>Email hỗ trợ</span>
-                    <input placeholder="support@cineve.vn" type="email" />
+                    <input name="email" placeholder="support@cineve.vn" type="email" />
                   </label>
                 </div>
               </article>

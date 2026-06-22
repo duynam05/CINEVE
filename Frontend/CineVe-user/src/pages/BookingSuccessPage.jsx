@@ -1,6 +1,8 @@
-import { useMemo } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { Bell, Camera, CheckCircle2, Home, Search, Share2, Ticket, Youtube } from "lucide-react";
 import { Link } from "react-router-dom";
+import AccountNavActions from "../components/common/AccountNavActions.jsx";
+import { formatCurrency, formatDateTime } from "../utils/format";
 
 const ticket = {
   bookingCode: "CVE-889-204",
@@ -14,6 +16,19 @@ const ticket = {
 };
 
 function BookingSuccessPage() {
+  const [latestBooking, setLatestBooking] = useState(null);
+
+  useEffect(() => {
+    const storedBooking = sessionStorage.getItem("cineve_latest_booking");
+    if (!storedBooking) return;
+
+    try {
+      setLatestBooking(JSON.parse(storedBooking));
+    } catch {
+      sessionStorage.removeItem("cineve_latest_booking");
+    }
+  }, []);
+
   const confetti = useMemo(() => {
     const colors = ["#ffb4aa", "#e50914", "#e9c349", "#ffffff"];
     return Array.from({ length: 50 }, (_, index) => ({
@@ -56,7 +71,7 @@ function BookingSuccessPage() {
           <h1>Đặt vé thành công!</h1>
           <p>Chúc mừng bạn đã sở hữu tấm vé cho trải nghiệm điện ảnh tuyệt vời sắp tới tại CineVe.</p>
 
-          <DigitalTicket />
+          <DigitalTicket ticket={mapBookingToTicket(latestBooking)} />
 
           <div className="success-actions">
             <Link className="success-primary" to="/ve-cua-toi">
@@ -70,7 +85,6 @@ function BookingSuccessPage() {
           </div>
         </section>
       </main>
-      <SuccessFooter />
     </div>
   );
 }
@@ -90,15 +104,14 @@ function SuccessNavbar() {
         <div className="home-nav-actions">
           <button className="icon-button" type="button" aria-label="Tìm kiếm"><Search size={20} /></button>
           <button className="icon-button" type="button" aria-label="Thông báo"><Bell size={20} /></button>
-          <Link className="nav-login" to="/dang-nhap">Đăng nhập</Link>
-          <Link className="nav-register" to="/dang-ky">Đăng ký</Link>
+          <AccountNavActions />
         </div>
       </div>
     </nav>
   );
 }
 
-function DigitalTicket() {
+function DigitalTicket({ ticket }) {
   return (
     <article className="digital-ticket">
       <div className="ticket-cover">
@@ -147,6 +160,25 @@ function FakeQrCode() {
       ))}
     </div>
   );
+}
+
+function mapBookingToTicket(booking) {
+  if (!booking) return ticket;
+
+  const showtime = booking.showtime || {};
+  const seatCodes = booking.seats?.map((seat) => seat.seatCode || seat.code).filter(Boolean) || [];
+  const foods = booking.foods?.map((food) => `${food.quantity}x ${food.foodName || food.name}`).filter(Boolean) || [];
+
+  return {
+    bookingCode: booking.code || booking.id || ticket.bookingCode,
+    movie: showtime.movieTitle || ticket.movie,
+    total: formatCurrency(booking.totalAmount),
+    cinema: `${showtime.cinemaName || "CineVe"} - ${showtime.roomName || "Phòng chiếu"}`,
+    datetime: showtime.startTime ? formatDateTime(showtime.startTime) : ticket.datetime,
+    seats: seatCodes.length > 0 ? seatCodes.join(", ") : ticket.seats,
+    combo: foods.length > 0 ? foods.join(", ") : "Không chọn combo",
+    backdrop: ticket.backdrop
+  };
 }
 
 function SuccessFooter() {

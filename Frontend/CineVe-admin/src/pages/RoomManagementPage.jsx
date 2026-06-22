@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Bell,
   CalendarDays,
@@ -19,43 +19,78 @@ import {
   X
 } from "lucide-react";
 import { Link } from "react-router-dom";
-
-const rooms = [
-  { id: "room-01", name: "Phòng Chiếu 01", type: "IMAX", rows: 10, cols: 12, active: true },
-  { id: "room-02", name: "Phòng Chiếu 02", type: "2D Digital", rows: 12, cols: 14 },
-  { id: "room-03", name: "Phòng Chiếu 03 (VIP)", type: "Gold Class", rows: 6, cols: 8 },
-  { id: "room-04", name: "Phòng Chiếu 04", type: "3D Atmos", rows: 10, cols: 12 }
-];
+import { toast } from "react-toastify";
+import { adminRoomApi, adminSeatApi } from "../api/adminApi";
+import { getErrorMessage } from "../api/axiosClient";
+import { asArray } from "../api/formatters";
 
 const seatTypes = [
-  { id: "standard", label: "Thường" },
-  { id: "vip", label: "Ghế VIP" },
-  { id: "couple", label: "Ghế đôi" },
-  { id: "maintenance", label: "Bảo trì" }
+  { id: "standard", label: "Thường", apiType: "NORMAL" },
+  { id: "vip", label: "Ghế VIP", apiType: "VIP" },
+  { id: "couple", label: "Ghế đôi", apiType: "COUPLE" },
+  { id: "maintenance", label: "Bảo trì", status: "MAINTENANCE" }
 ];
 
-const rowLabels = "ABCDEFGHIJ".split("");
-
 function RoomManagementPage() {
-  const [activeRoomId, setActiveRoomId] = useState("room-01");
+  const [rooms, setRooms] = useState([]);
+  const [activeRoomId, setActiveRoomId] = useState("");
   const [selectedType, setSelectedType] = useState("standard");
   const [selectedSeats, setSelectedSeats] = useState([]);
+  const [seats, setSeats] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const activeRoom = rooms.find((room) => room.id === activeRoomId) ?? rooms[0];
+  const loadRooms = async () => {
+    try {
+      setLoading(true);
+      const data = await adminRoomApi.list();
+      const mappedRooms = asArray(data).map(mapRoom);
+      setRooms(mappedRooms);
+      setActiveRoomId((current) => current || mappedRooms[0]?.id || "");
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+      setRooms([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const seats = useMemo(() => {
-    return rowLabels.flatMap((row, rowIndex) =>
-      Array.from({ length: 12 }, (_, index) => {
-        const col = index + 1;
-        let type = "standard";
-        if (rowIndex >= 4 && rowIndex < 8) type = "vip";
-        if (rowIndex >= 8) type = "couple";
-        if (rowIndex >= 8 && (col === 6 || col === 7)) type = "maintenance";
-        return { id: `${row}${col}`, row, col, type };
-      })
-    );
+  const loadSeats = async (roomId) => {
+    if (!roomId) {
+      setSeats([]);
+      return;
+    }
+
+    try {
+      const data = await adminSeatApi.byRoom(roomId);
+      setSeats(asArray(data).map(mapSeat));
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+      setSeats([]);
+    }
+  };
+
+  useEffect(() => {
+    loadRooms();
   }, []);
+
+  useEffect(() => {
+    loadSeats(activeRoomId);
+    setSelectedSeats([]);
+  }, [activeRoomId]);
+
+  const activeRoom = rooms.find((room) => room.id === activeRoomId) ?? rooms[0] ?? {
+    id: "",
+    name: "Chưa có phòng",
+    type: "--",
+    rows: 0,
+    cols: 0
+  };
+
+  const visibleSeats = useMemo(() => {
+    if (seats.length) return seats;
+    return [];
+  }, [seats]);
 
   const toggleSeat = (seatId) => {
     setSelectedSeats((current) =>
@@ -63,16 +98,55 @@ function RoomManagementPage() {
     );
   };
 
+  const handleSaveSeats = async () => {
+    const type = seatTypes.find((item) => item.id === selectedType);
+    if (!selectedSeats.length || !type) {
+      toast.error("Vui lòng chọn ghế cần cập nhật");
+      return;
+    }
+
+    try {
+      await Promise.all(
+        selectedSeats.map((seatId) => {
+          const seat = seats.find((item) => item.id === seatId);
+          if (!seat) return Promise.resolve();
+          if (type.status === "MAINTENANCE") return adminSeatApi.maintenance(seat.id);
+          return adminSeatApi.update(seat.id, {
+            roomId: seat.roomId,
+            rowName: seat.rowName,
+            columnNumber: seat.columnNumber,
+            type: type.apiType,
+            status: "ACTIVE"
+          });
+        })
+      );
+      toast.success("Thao tác thành công");
+      loadSeats(activeRoomId);
+      setSelectedSeats([]);
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  };
+
+  const handleGenerateSeats = async () => {
+    if (!activeRoomId) return;
+    try {
+      await adminRoomApi.generateSeats(activeRoomId);
+      toast.success("Thao tác thành công");
+      loadSeats(activeRoomId);
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  };
+
   return (
     <div className="admin-shell">
-      <RoomSidebar />
       <div className="admin-workspace">
-        <RoomTopbar />
         <main className="room-admin-main">
           <section className="room-heading">
             <div>
               <h1>Quản lý phòng & ghế</h1>
-              <p>Thiết lập sơ đồ ghế và cấu hình phòng chiếu</p>
+              <p>{loading ? "Đang tải dữ liệu..." : "Thiết lập sơ đồ ghế và cấu hình phòng chiếu"}</p>
             </div>
             <Link className="add-room-button" to="/rooms/new">
               <Plus size={18} />
@@ -84,10 +158,10 @@ function RoomManagementPage() {
             <aside className="room-list-panel">
               <header>
                 <span>Danh sách phòng</span>
-                <strong>8 phòng</strong>
+                <strong>{rooms.length} phòng</strong>
               </header>
               <div className="room-list">
-                {rooms.map((room) => (
+                {rooms.length ? rooms.map((room) => (
                   <button
                     className={room.id === activeRoomId ? "active" : ""}
                     key={room.id}
@@ -102,7 +176,7 @@ function RoomManagementPage() {
                       Hàng: {room.rows} | Cột: {room.cols} | Tổng: {room.rows * room.cols} ghế
                     </p>
                   </button>
-                ))}
+                )) : <p>Chưa có dữ liệu</p>}
               </div>
             </aside>
 
@@ -115,7 +189,7 @@ function RoomManagementPage() {
                 <div>
                   <button type="button" aria-label="Hoàn tác"><Undo2 size={18} /></button>
                   <button type="button" aria-label="Làm lại"><Redo2 size={18} /></button>
-                  <button type="button" className="save-seat-map"><Save size={16} /> Lưu sơ đồ</button>
+                  <button type="button" className="save-seat-map" onClick={handleSaveSeats}><Save size={16} /> Lưu sơ đồ</button>
                 </div>
               </header>
 
@@ -139,16 +213,20 @@ function RoomManagementPage() {
                   <span>Màn hình / Screen</span>
                 </div>
                 <div className="admin-seat-grid">
-                  {seats.map((seat) => (
+                  {visibleSeats.length ? visibleSeats.map((seat) => (
                     <button
                       className={`admin-seat ${seat.type} ${selectedSeats.includes(seat.id) ? "selected" : ""}`}
                       type="button"
                       key={seat.id}
                       onClick={() => toggleSeat(seat.id)}
                     >
-                      {seat.type === "maintenance" ? <Construction size={13} /> : seat.id}
+                      {seat.type === "maintenance" ? <Construction size={13} /> : seat.code}
                     </button>
-                  ))}
+                  )) : (
+                    <button className="admin-seat standard" type="button" onClick={handleGenerateSeats}>
+                      Tạo ghế
+                    </button>
+                  )}
                 </div>
                 <div className="seat-legend-admin">
                   <span><i className="standard" />Standard</span>
@@ -270,6 +348,41 @@ function AddRoomModal({ onClose }) {
       </section>
     </div>
   );
+}
+
+function mapRoom(room) {
+  return {
+    id: room.id,
+    name: room.name || "--",
+    type: room.type || "--",
+    rows: room.rowCount ?? 0,
+    cols: room.columnCount ?? 0,
+    cinemaId: room.cinemaId,
+    cinemaName: room.cinemaName,
+    status: room.status
+  };
+}
+
+function mapSeat(seat) {
+  const type =
+    seat.status === "MAINTENANCE"
+      ? "maintenance"
+      : {
+          VIP: "vip",
+          COUPLE: "couple",
+          NORMAL: "standard"
+        }[seat.type] || "standard";
+
+  return {
+    id: seat.id,
+    roomId: seat.roomId,
+    code: seat.code || `${seat.rowName || ""}${seat.columnNumber || ""}`,
+    rowName: seat.rowName,
+    columnNumber: seat.columnNumber,
+    type,
+    rawType: seat.type,
+    status: seat.status
+  };
 }
 
 export default RoomManagementPage;

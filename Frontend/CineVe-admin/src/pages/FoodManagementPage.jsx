@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Bell,
   CalendarDays,
@@ -14,75 +14,70 @@ import {
   Warehouse,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-
-const products = [
-  {
-    name: "Combo Gia Đình",
-    category: "Combo",
-    price: "199.000đ",
-    description: "2 bắp lớn, 4 nước ngọt size L và 2 snack khoai tây. Phù hợp cho nhóm 4 người.",
-    stock: "Còn hàng",
-    active: true,
-    featured: true,
-    image: "https://images.unsplash.com/photo-1585647347483-22b66260dfff?auto=format&fit=crop&w=900&q=85"
-  },
-  {
-    name: "Bắp Phô Mai Lớn",
-    category: "Bắp",
-    price: "65.000đ",
-    description: "Bắp rang bơ phủ lớp bột phô mai đặc biệt, giòn tan và đậm vị.",
-    stock: "Còn hàng",
-    active: true,
-    image: "https://images.unsplash.com/photo-1578849278619-e73505e9610f?auto=format&fit=crop&w=900&q=85"
-  },
-  {
-    name: "Pepsi Max Size",
-    category: "Nước",
-    price: "45.000đ",
-    description: "Nước ngọt Pepsi tươi mát dung tích 1L, phục vụ kèm đá lạnh.",
-    stock: "Hết hàng",
-    active: false,
-    image: "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=900&q=85"
-  },
-  {
-    name: "Nachos Phô Mai",
-    category: "Snack",
-    price: "89.000đ",
-    description: "Bánh ngô nướng giòn kèm sốt phô mai nóng và ớt Jalapeno cay nhẹ.",
-    stock: "Còn hàng",
-    active: true,
-    image: "https://images.unsplash.com/photo-1599974579688-8dbdd335c77f?auto=format&fit=crop&w=900&q=85"
-  },
-  {
-    name: "Combo Thượng Hạng",
-    category: "VIP Combo",
-    price: "450.000đ",
-    description: "Phần ăn đặc biệt cho phòng chiếu VIP gồm pizza hải sản, đồ uống cao cấp và tráng miệng.",
-    stock: "Còn hàng",
-    active: true,
-    featured: true,
-    image: "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=900&q=85"
-  }
-];
+import { toast } from "react-toastify";
+import { adminFoodApi } from "../api/adminApi";
+import { getErrorMessage } from "../api/axiosClient";
+import { asArray, formatCurrency, toAbsoluteImage } from "../api/formatters";
 
 function FoodManagementPage() {
+  const [products, setProducts] = useState([]);
+  const [activeTab, setActiveTab] = useState("Tất cả");
+  const [loading, setLoading] = useState(true);
+
+  const loadFoods = async () => {
+    try {
+      setLoading(true);
+      const data = await adminFoodApi.list();
+      setProducts(asArray(data).map(mapFood));
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+      setProducts([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadFoods();
+  }, []);
+
+  const visibleProducts = useMemo(() => {
+    if (activeTab === "Tất cả") return products;
+    return products.filter((product) => product.category === activeTab);
+  }, [activeTab, products]);
+
+  const handleToggle = async (product) => {
+    try {
+      await adminFoodApi.update(product.id, {
+        name: product.name,
+        description: product.description,
+        type: product.rawType,
+        price: product.rawPrice,
+        imageUrl: product.rawImage,
+        active: !product.active
+      });
+      toast.success("Thao tác thành công");
+      loadFoods();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  };
+
   return (
     <div className="admin-shell">
-      <FoodSidebar />
       <div className="admin-workspace">
-        <FoodTopbar />
         <main className="food-admin-main">
           <section className="food-heading">
             <div>
               <h1>Quản lý đồ ăn / combo</h1>
-              <p>Danh mục món ăn, nước uống và các combo ưu đãi bán kèm vé xem phim.</p>
+              <p>{loading ? "Đang tải dữ liệu..." : "Danh mục món ăn, nước uống và các combo ưu đãi bán kèm vé xem phim."}</p>
             </div>
           </section>
 
           <section className="food-toolbar">
             <div className="food-tabs">
-              {["Tất cả", "Bắp", "Nước", "Combo", "Snack"].map((tab, index) => (
-                <button className={index === 0 ? "active" : ""} type="button" key={tab}>
+              {["Tất cả", "Bắp", "Nước", "Combo", "Snack"].map((tab) => (
+                <button className={activeTab === tab ? "active" : ""} type="button" key={tab} onClick={() => setActiveTab(tab)}>
                   {tab}
                 </button>
               ))}
@@ -94,8 +89,8 @@ function FoodManagementPage() {
           </section>
 
           <section className="food-grid">
-            {products.map((product) => (
-              <article className={`food-card ${product.featured ? "featured" : ""}`} key={product.name}>
+            {visibleProducts.length ? visibleProducts.map((product) => (
+              <article className={`food-card ${product.featured ? "featured" : ""}`} key={product.id || product.name}>
                 <div className="food-card-media">
                   <img src={product.image} alt={product.name} />
                   <span>{product.category}</span>
@@ -115,13 +110,13 @@ function FoodManagementPage() {
                       {product.stock}
                     </span>
                     <label className="food-switch" aria-label={`Trạng thái ${product.name}`}>
-                      <input type="checkbox" defaultChecked={product.active} />
+                      <input type="checkbox" checked={product.active} onChange={() => handleToggle(product)} />
                       <span />
                     </label>
                   </div>
                 </div>
               </article>
-            ))}
+            )) : <p>Chưa có dữ liệu</p>}
 
             <Link className="food-add-card" to="/foods/new">
               <span>
@@ -197,6 +192,30 @@ function FoodTopbar() {
       </div>
     </header>
   );
+}
+
+function mapFood(food) {
+  const categoryMap = {
+    POPCORN: "Bắp",
+    DRINK: "Nước",
+    COMBO: "Combo",
+    SNACK: "Snack"
+  };
+
+  return {
+    id: food.id,
+    name: food.name || "--",
+    category: categoryMap[food.type] || "Snack",
+    rawType: food.type || "SNACK",
+    rawPrice: food.price ?? 0,
+    rawImage: food.imageUrl || "",
+    price: formatCurrency(food.price),
+    description: food.description || "--",
+    stock: food.active ? "Còn hàng" : "Hết hàng",
+    active: Boolean(food.active),
+    featured: food.type === "COMBO",
+    image: toAbsoluteImage(food.imageUrl)
+  };
 }
 
 export default FoodManagementPage;
