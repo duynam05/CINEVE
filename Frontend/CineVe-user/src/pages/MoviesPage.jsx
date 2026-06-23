@@ -2,7 +2,7 @@
 import { Bell, CalendarDays, ChevronLeft, ChevronRight, Search, SlidersHorizontal, Star, Ticket, Timer } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect } from "react";
-import { movieApi } from "../api/clientApi";
+import { genreApi, movieApi } from "../api/clientApi";
 import AccountNavActions from "../components/common/AccountNavActions.jsx";
 import { assetUrl, formatDate } from "../utils/format";
 
@@ -87,13 +87,13 @@ const movies = [
   }
 ];
 
-const genres = ["Tất cả thể loại", "Hành động", "Hoạt hình", "Kinh dị", "Hài", "Tình cảm"];
 const languages = ["Ngôn ngữ", "Tiếng Việt", "Tiếng Anh"];
 const ageRatings = ["Độ tuổi", "P", "T13", "T16", "T18"];
 
 function MoviesPage() {
   const [tab, setTab] = useState("now");
   const [movieItems, setMovieItems] = useState(movies);
+  const [genreOptions, setGenreOptions] = useState(["Tất cả thể loại"]);
   const [filters, setFilters] = useState({
     keyword: "",
     genre: "Tất cả thể loại",
@@ -110,6 +110,15 @@ function MoviesPage() {
       })
       .catch(() => setMovieItems(movies));
   }, []);
+
+  useEffect(() => {
+    genreApi.list()
+      .then((result) => {
+        const options = buildGenreOptions(result);
+        setGenreOptions(options.length > 1 ? options : buildGenreOptionsFromMovies(movieItems));
+      })
+      .catch(() => setGenreOptions(buildGenreOptionsFromMovies(movieItems)));
+  }, [movieItems]);
 
   const filteredMovies = useMemo(() => {
     return movieItems.filter((movie) => {
@@ -165,7 +174,7 @@ function MoviesPage() {
               type="text"
             />
           </label>
-          <FilterSelect value={filters.genre} onChange={(value) => updateFilter("genre", value)} options={genres} />
+          <FilterSelect value={filters.genre} onChange={(value) => updateFilter("genre", value)} options={genreOptions} />
           <FilterSelect value={filters.language} onChange={(value) => updateFilter("language", value)} options={languages} />
           <FilterSelect value={filters.age} onChange={(value) => updateFilter("age", value)} options={ageRatings} />
           <button className="reset-filter-button" type="button" onClick={resetFilters}>
@@ -323,6 +332,25 @@ function mapMovieItem(movie) {
     language: movie.language || "Tiếng Việt",
     image: assetUrl(movie.posterUrl)
   };
+}
+
+function buildGenreOptions(items = []) {
+  const names = items.map((genre) => genre?.name || genre).filter(Boolean);
+  return ["Tất cả thể loại", ...uniqueGenreNames(names)];
+}
+
+function buildGenreOptionsFromMovies(items = []) {
+  const names = items.flatMap((movie) => String(movie.genres || "").split(",").map((genre) => genre.trim()));
+  return ["Tất cả thể loại", ...uniqueGenreNames(names)];
+}
+
+function uniqueGenreNames(names = []) {
+  return Array.from(new Map(
+    names
+      .map((name) => name.trim())
+      .filter(Boolean)
+      .map((name) => [name.toLocaleLowerCase("vi-VN"), name])
+  ).values());
 }
 
 export default MoviesPage;

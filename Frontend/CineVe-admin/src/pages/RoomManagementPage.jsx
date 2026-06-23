@@ -18,9 +18,9 @@ import {
   Warehouse,
   X
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import { adminRoomApi, adminSeatApi } from "../api/adminApi";
+import { adminCinemaApi, adminRoomApi, adminSeatApi } from "../api/adminApi";
 import { getErrorMessage } from "../api/axiosClient";
 import { asArray } from "../api/formatters";
 
@@ -32,26 +32,49 @@ const seatTypes = [
 ];
 
 function RoomManagementPage() {
+  const [searchParams] = useSearchParams();
+  const cinemaId = searchParams.get("cinemaId");
+  const [cinemas, setCinemas] = useState([]);
+  const [selectedCinemaId, setSelectedCinemaId] = useState(cinemaId || "");
   const [rooms, setRooms] = useState([]);
   const [activeRoomId, setActiveRoomId] = useState("");
   const [selectedType, setSelectedType] = useState("standard");
   const [selectedSeats, setSelectedSeats] = useState([]);
+  const [pendingSeatTypes, setPendingSeatTypes] = useState({});
   const [seats, setSeats] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const loadRooms = async () => {
+    if (!selectedCinemaId) {
+      setRooms([]);
+      setActiveRoomId("");
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
-      const data = await adminRoomApi.list();
+      const data = await adminRoomApi.byCinema(selectedCinemaId);
       const mappedRooms = asArray(data).map(mapRoom);
       setRooms(mappedRooms);
-      setActiveRoomId((current) => current || mappedRooms[0]?.id || "");
+      setActiveRoomId((current) => mappedRooms.some((room) => room.id === current) ? current : mappedRooms[0]?.id || "");
     } catch (error) {
       toast.error(getErrorMessage(error));
       setRooms([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadCinemas = async () => {
+    try {
+      const data = asArray(await adminCinemaApi.list()).map(mapCinema);
+      setCinemas(data);
+      setSelectedCinemaId((current) => current || cinemaId || data[0]?.id || "");
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+      setCinemas([]);
     }
   };
 
@@ -71,12 +94,23 @@ function RoomManagementPage() {
   };
 
   useEffect(() => {
-    loadRooms();
+    loadCinemas();
   }, []);
+
+  useEffect(() => {
+    if (cinemaId) {
+      setSelectedCinemaId(cinemaId);
+    }
+  }, [cinemaId]);
+
+  useEffect(() => {
+    loadRooms();
+  }, [selectedCinemaId]);
 
   useEffect(() => {
     loadSeats(activeRoomId);
     setSelectedSeats([]);
+    setPendingSeatTypes({});
   }, [activeRoomId]);
 
   const activeRoom = rooms.find((room) => room.id === activeRoomId) ?? rooms[0] ?? {
@@ -93,9 +127,22 @@ function RoomManagementPage() {
   }, [seats]);
 
   const toggleSeat = (seatId) => {
-    setSelectedSeats((current) =>
-      current.includes(seatId) ? current.filter((item) => item !== seatId) : [...current, seatId]
-    );
+    setSelectedSeats((current) => {
+      const isSelected = current.includes(seatId);
+      const currentPendingType = pendingSeatTypes[seatId];
+
+      if (isSelected && currentPendingType === selectedType) {
+        setPendingSeatTypes((pending) => {
+          const next = { ...pending };
+          delete next[seatId];
+          return next;
+        });
+        return current.filter((item) => item !== seatId);
+      }
+
+      setPendingSeatTypes((pending) => ({ ...pending, [seatId]: selectedType }));
+      return isSelected ? current : [...current, seatId];
+    });
   };
 
   const handleSaveSeats = async () => {
@@ -110,12 +157,13 @@ function RoomManagementPage() {
         selectedSeats.map((seatId) => {
           const seat = seats.find((item) => item.id === seatId);
           if (!seat) return Promise.resolve();
-          if (type.status === "MAINTENANCE") return adminSeatApi.maintenance(seat.id);
+          const updateType = seatTypes.find((item) => item.id === (pendingSeatTypes[seatId] || selectedType)) || type;
+          if (updateType.status === "MAINTENANCE") return adminSeatApi.maintenance(seat.id);
           return adminSeatApi.update(seat.id, {
             roomId: seat.roomId,
             rowName: seat.rowName,
             columnNumber: seat.columnNumber,
-            type: type.apiType,
+            type: updateType.apiType,
             status: "ACTIVE"
           });
         })
@@ -123,6 +171,7 @@ function RoomManagementPage() {
       toast.success("Thao tác thành công");
       loadSeats(activeRoomId);
       setSelectedSeats([]);
+      setPendingSeatTypes({});
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -148,7 +197,7 @@ function RoomManagementPage() {
               <h1>Quản lý phòng & ghế</h1>
               <p>{loading ? "Đang tải dữ liệu..." : "Thiết lập sơ đồ ghế và cấu hình phòng chiếu"}</p>
             </div>
-            <Link className="add-room-button" to="/rooms/new">
+            <Link className="add-room-button" to={selectedCinemaId ? `/rooms/new?cinemaId=${selectedCinemaId}` : "/rooms/new"}>
               <Plus size={18} />
               Thêm phòng mới
             </Link>
@@ -160,8 +209,19 @@ function RoomManagementPage() {
                 <span>Danh sách phòng</span>
                 <strong>{rooms.length} phòng</strong>
               </header>
+              <label className="room-cinema-select">
+                <span>Rạp chiếu</span>
+                <select value={selectedCinemaId} onChange={(event) => setSelectedCinemaId(event.target.value)}>
+                  <option value="">Chọn rạp chiếu</option>
+                  {cinemas.map((cinema) => (
+                    <option value={cinema.id} key={cinema.id}>{cinema.name}</option>
+                  ))}
+                </select>
+              </label>
               <div className="room-list">
-                {rooms.length ? rooms.map((room) => (
+                {!selectedCinemaId ? (
+                  <p>Vui lòng chọn rạp chiếu</p>
+                ) : rooms.length ? rooms.map((room) => (
                   <button
                     className={room.id === activeRoomId ? "active" : ""}
                     key={room.id}
@@ -213,16 +273,20 @@ function RoomManagementPage() {
                   <span>Màn hình / Screen</span>
                 </div>
                 <div className="admin-seat-grid">
-                  {visibleSeats.length ? visibleSeats.map((seat) => (
-                    <button
-                      className={`admin-seat ${seat.type} ${selectedSeats.includes(seat.id) ? "selected" : ""}`}
-                      type="button"
-                      key={seat.id}
-                      onClick={() => toggleSeat(seat.id)}
-                    >
-                      {seat.type === "maintenance" ? <Construction size={13} /> : seat.code}
-                    </button>
-                  )) : (
+                  {visibleSeats.length ? visibleSeats.map((seat) => {
+                    const displayType = pendingSeatTypes[seat.id] || seat.type;
+
+                    return (
+                      <button
+                        className={`admin-seat ${displayType} ${selectedSeats.includes(seat.id) ? "selected" : ""}`}
+                        type="button"
+                        key={seat.id}
+                        onClick={() => toggleSeat(seat.id)}
+                      >
+                        {displayType === "maintenance" ? <Construction size={13} /> : seat.code}
+                      </button>
+                    );
+                  }) : (
                     <button className="admin-seat standard" type="button" onClick={handleGenerateSeats}>
                       Tạo ghế
                     </button>
@@ -360,6 +424,14 @@ function mapRoom(room) {
     cinemaId: room.cinemaId,
     cinemaName: room.cinemaName,
     status: room.status
+  };
+}
+
+function mapCinema(cinema) {
+  return {
+    id: cinema.id,
+    name: cinema.name || "--",
+    city: cinema.city || "--"
   };
 }
 

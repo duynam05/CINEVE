@@ -41,6 +41,7 @@ export const adminCinemaApi = {
   detail: (id) => get(`/admin/cinemas/${id}`),
   create: (payload) => post("/admin/cinemas", payload),
   update: (id, payload) => put(`/admin/cinemas/${id}`, payload),
+  updateStatus: (id, status) => patch(`/admin/cinemas/${id}/status`, null, { params: { status } }),
   remove: (id) => del(`/admin/cinemas/${id}`)
 };
 

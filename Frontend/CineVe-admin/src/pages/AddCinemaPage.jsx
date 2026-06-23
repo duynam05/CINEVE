@@ -17,7 +17,7 @@ import {
   Upload,
   Warehouse
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { adminCinemaApi } from "../api/adminApi";
 import { getErrorMessage } from "../api/axiosClient";
@@ -37,10 +37,25 @@ const facilities = [
 ];
 
 function AddCinemaPage() {
+  const [searchParams] = useSearchParams();
+  const cinemaId = searchParams.get("id");
+  const isEditMode = searchParams.get("mode") === "edit" && Boolean(cinemaId);
   const [isSaving, setIsSaving] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [coverPreview, setCoverPreview] = useState("");
   const [logoPreview, setLogoPreview] = useState("");
+  const [cinemaForm, setCinemaForm] = useState(null);
+
+  React.useEffect(() => {
+    if (!cinemaId) {
+      setCinemaForm(null);
+      return;
+    }
+
+    adminCinemaApi.detail(cinemaId)
+      .then((data) => setCinemaForm(data || {}))
+      .catch((error) => toast.error(getErrorMessage(error)));
+  }, [cinemaId]);
 
   const handleFile = (event, setter) => {
     const file = event.target.files?.[0];
@@ -59,11 +74,15 @@ function AddCinemaPage() {
       phone: formData.get("phone") || "",
       email: formData.get("email") || "",
       description: formData.get("description") || "",
-      status: "ACTIVE"
+      status: cinemaForm?.status || "ACTIVE"
     };
 
     try {
-      await adminCinemaApi.create(payload);
+      if (isEditMode) {
+        await adminCinemaApi.update(cinemaId, payload);
+      } else {
+        await adminCinemaApi.create(payload);
+      }
       toast.success("Thao tác thành công");
       setShowToast(true);
       window.clearTimeout(window.__cineveAddCinemaToast);
@@ -79,7 +98,7 @@ function AddCinemaPage() {
     <div className="admin-shell">
       <div className="admin-workspace">
         <main className="add-cinema-main">
-          <form className="add-cinema-layout" id="cinema-form" onSubmit={handleSubmit}>
+          <form className="add-cinema-layout" id="cinema-form" key={cinemaId ? `cinema-${cinemaId}-${cinemaForm ? "ready" : "loading"}` : "new"} onSubmit={handleSubmit}>
             <section className="add-cinema-left">
               <article className="add-cinema-panel">
                 <header>
@@ -89,11 +108,11 @@ function AddCinemaPage() {
                 <div className="add-cinema-grid">
                   <label>
                     <span>Tên rạp chiếu phim</span>
-                    <input name="name" placeholder="Nhập tên rạp..." />
+                    <input name="name" placeholder="Nhập tên rạp..." defaultValue={cinemaForm?.name || ""} />
                   </label>
                   <label>
                     <span>Thành phố / Tỉnh</span>
-                    <select name="city" defaultValue="">
+                    <select name="city" defaultValue={cinemaForm?.city || ""}>
                       <option value="" disabled>Chọn địa điểm</option>
                       <option value="Hà Nội">Hà Nội</option>
                       <option value="TP. Hồ Chí Minh">TP. Hồ Chí Minh</option>
@@ -102,15 +121,15 @@ function AddCinemaPage() {
                   </label>
                   <label className="span-2">
                     <span>Địa chỉ chi tiết</span>
-                    <input name="address" placeholder="Số nhà, tên đường, phường/xã..." />
+                    <input name="address" placeholder="Số nhà, tên đường, phường/xã..." defaultValue={cinemaForm?.address || ""} />
                   </label>
                   <label>
                     <span>Số điện thoại liên hệ</span>
-                    <input name="phone" placeholder="024 XXXX XXXX" type="tel" />
+                    <input name="phone" placeholder="024 XXXX XXXX" type="tel" defaultValue={cinemaForm?.phone || ""} />
                   </label>
                   <label>
                     <span>Email hỗ trợ</span>
-                    <input name="email" placeholder="support@cineve.vn" type="email" />
+                    <input name="email" placeholder="support@cineve.vn" type="email" defaultValue={cinemaForm?.email || ""} />
                   </label>
                 </div>
               </article>
@@ -181,7 +200,7 @@ function AddCinemaPage() {
               <Link className="cancel-add-cinema" to="/cinemas">Hủy bỏ</Link>
               <button className="save-add-cinema" type="submit" disabled={isSaving}>
                 <Save size={18} />
-                {isSaving ? "Đang lưu..." : "Lưu thông tin"}
+                {isSaving ? "Đang lưu..." : isEditMode ? "Lưu thay đổi" : "Lưu thông tin"}
               </button>
             </footer>
           </form>

@@ -1,8 +1,9 @@
-﻿import { useEffect, useState } from "react";
-import { Bell, CircleUserRound, Clapperboard, Home, Mail, MapPin, Search, Share2, Star, Ticket, TicketCheck, UsersRound } from "lucide-react";
+﻿import { useEffect, useMemo, useState } from "react";
+import { Bell, ChevronLeft, ChevronRight, CircleUserRound, Clapperboard, Home, Mail, MapPin, Search, Share2, Star, Ticket, TicketCheck, UsersRound } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cinemaApi, movieApi } from "../api/clientApi";
 import AccountNavActions from "../components/common/AccountNavActions.jsx";
+import TrailerModal from "../components/common/TrailerModal.jsx";
 import { assetUrl, formatDate } from "../utils/format";
 
 const heroMovie = {
@@ -96,9 +97,13 @@ const promotions = [
 function HomePage() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [heroOffset, setHeroOffset] = useState(0);
+  const [heroIndex, setHeroIndex] = useState(1);
+  const [heroTransitionEnabled, setHeroTransitionEnabled] = useState(true);
+  const [activeTrailer, setActiveTrailer] = useState(null);
   const [homeData, setHomeData] = useState({
     nowShowing: nowShowingMovies,
     comingSoon: comingSoonMovies,
+    allMovies: [],
     cinemas
   });
 
@@ -114,34 +119,80 @@ function HomePage() {
   }, []);
 
   useEffect(() => {
-    Promise.all([movieApi.nowShowing(), movieApi.comingSoon(), cinemaApi.list()])
-      .then(([nowShowingResult, comingSoonResult, cinemaResult]) => {
+    Promise.all([movieApi.nowShowing(), movieApi.comingSoon(), movieApi.list(), cinemaApi.list()])
+      .then(([nowShowingResult, comingSoonResult, allMoviesResult, cinemaResult]) => {
+        const mappedNowShowing = nowShowingResult?.length ? nowShowingResult.map(mapMovieCard) : nowShowingMovies;
+        const mappedComingSoon = comingSoonResult?.length ? comingSoonResult.map(mapComingMovie) : comingSoonMovies;
         setHomeData({
-          nowShowing: nowShowingResult?.length ? nowShowingResult.map(mapMovieCard) : nowShowingMovies,
-          comingSoon: comingSoonResult?.length ? comingSoonResult.map(mapComingMovie) : comingSoonMovies,
+          nowShowing: mappedNowShowing,
+          comingSoon: mappedComingSoon,
+          allMovies: allMoviesResult?.length ? allMoviesResult.map(mapHeroMovie) : [...mappedNowShowing, ...mappedComingSoon],
           cinemas: cinemaResult?.length ? cinemaResult.map((cinema) => [cinema.name, cinema.address || cinema.city]) : cinemas
         });
       })
-      .catch(() => setHomeData({ nowShowing: nowShowingMovies, comingSoon: comingSoonMovies, cinemas }));
+      .catch(() => setHomeData({ nowShowing: nowShowingMovies, comingSoon: comingSoonMovies, allMovies: [...nowShowingMovies, ...comingSoonMovies], cinemas }));
   }, []);
 
-  const hero = homeData.nowShowing[0]
-    ? {
-        title: homeData.nowShowing[0].title,
-        rating: homeData.nowShowing[0].rating,
-        image: homeData.nowShowing[0].image,
-        description: homeData.nowShowing[0].description || heroMovie.description
-      }
-    : heroMovie;
+  const heroMovies = useMemo(
+    () => homeData.allMovies.length ? homeData.allMovies : [...homeData.nowShowing, ...homeData.comingSoon],
+    [homeData]
+  );
+
+  useEffect(() => {
+    setHeroIndex(1);
+    setHeroTransitionEnabled(true);
+  }, [heroMovies.length]);
+
+  useEffect(() => {
+    if (heroMovies.length <= 1) return undefined;
+    const timer = window.setInterval(() => {
+      setHeroTransitionEnabled(true);
+      setHeroIndex((current) => current + 1);
+    }, 10000);
+    return () => window.clearInterval(timer);
+  }, [heroMovies.length]);
+
+  const hero = heroMovies[0] || heroMovie;
+
+  const handleOpenTrailer = (movie) => {
+    if (!movie?.trailerUrl) {
+      window.alert("Phim này chưa có trailer");
+      return;
+    }
+
+    setActiveTrailer(movie);
+  };
 
   return (
     <div className="home-page">
       <HomeNavbar isScrolled={isScrolled} />
-      <HeroSection heroOffset={heroOffset} movie={hero} />
+      <HeroSection
+        heroOffset={heroOffset}
+        movies={heroMovies.length ? heroMovies : [hero]}
+        activeIndex={heroIndex}
+        transitionEnabled={heroTransitionEnabled}
+        onTransitionReset={(index) => {
+          setHeroTransitionEnabled(false);
+          setHeroIndex(index);
+          window.requestAnimationFrame(() => {
+            window.requestAnimationFrame(() => setHeroTransitionEnabled(true));
+          });
+        }}
+        onPrev={() => {
+          setHeroTransitionEnabled(true);
+          setHeroIndex((current) => current - 1);
+        }}
+        onNext={() => {
+          setHeroTransitionEnabled(true);
+          setHeroIndex((current) => current + 1);
+        }}
+        onOpenTrailer={handleOpenTrailer}
+      />
       <NowShowingSection movies={homeData.nowShowing} />
       <ComingSoonSection movies={homeData.comingSoon} />
       <CinemaPromoSection cinemasData={homeData.cinemas} />
       <MobileNav />
+      <TrailerModal title={activeTrailer?.title} trailerUrl={activeTrailer?.trailerUrl} onClose={() => setActiveTrailer(null)} />
     </div>
   );
 }
@@ -176,36 +227,85 @@ function HomeNavbar({ isScrolled }) {
   );
 }
 
-function HeroSection({ heroOffset, movie }) {
+function HeroSection({ heroOffset, movies, activeIndex, transitionEnabled, onTransitionReset, onPrev, onNext, onOpenTrailer }) {
+  const slideMovies = movies.length > 1 ? [movies[movies.length - 1], ...movies, movies[0]] : movies;
+  const trackIndex = movies.length > 1 ? activeIndex : 0;
+  const visibleIndex = movies.length > 1
+    ? (activeIndex - 1 + movies.length) % movies.length
+    : 0;
+
+  const handleTransitionEnd = (event) => {
+    if (event.target !== event.currentTarget) return;
+    if (movies.length <= 1) return;
+
+    if (activeIndex <= 0) {
+      onTransitionReset(movies.length);
+    }
+
+    if (activeIndex >= movies.length + 1) {
+      onTransitionReset(1);
+    }
+  };
+
   return (
     <header className="home-hero">
-      <img
-        className="home-hero-image"
-        src={movie.image}
-        alt={movie.title}
-        style={{ transform: `translateY(${heroOffset}px)` }}
-      />
-      <div className="home-hero-gradient" />
-      <div className="home-hero-content">
-        <div className="hero-meta">
-          <span className="trend-badge">THỊNH HÀNH</span>
-          <span className="rating-pill">
-            <Star size={18} fill="currentColor" />
-            {movie.rating} IMDb
-          </span>
-        </div>
-        <h1>{movie.title}</h1>
-        <p>{movie.description}</p>
-        <div className="hero-actions">
-          <button className="hero-primary" type="button">
-            <TicketCheck size={22} />
-            ĐẶT VÉ NGAY
-          </button>
-          <button className="hero-secondary" type="button">
-            Xem Trailer
-          </button>
-        </div>
+      <div
+        className="home-hero-track"
+        style={{
+          transform: `translateX(-${trackIndex * 100}%)`,
+          transition: transitionEnabled ? undefined : "none"
+        }}
+        onTransitionEnd={handleTransitionEnd}
+      >
+        {slideMovies.map((movie, index) => (
+          <section className="home-hero-slide" key={`${movie.id || movie.title}-${index}`}>
+            <img
+              className="home-hero-image"
+              src={movie.image}
+              alt={movie.title}
+              style={{ transform: `translateY(${heroOffset}px)` }}
+            />
+            <div className="home-hero-gradient" />
+            <div className="home-hero-content">
+              <div className="hero-meta">
+                <span className="trend-badge">THỊNH HÀNH</span>
+                <span className="rating-pill">
+                  <Star size={18} fill="currentColor" />
+                  {movie.rating} IMDb
+                </span>
+              </div>
+              <h1>{movie.title}</h1>
+              <p>{movie.description}</p>
+              <div className="hero-actions">
+                <button className="hero-primary" type="button">
+                  <TicketCheck size={22} />
+                  ĐẶT VÉ NGAY
+                </button>
+                <button className="hero-secondary" type="button" onClick={() => onOpenTrailer(movie)}>
+                  Xem Trailer
+                </button>
+              </div>
+            </div>
+          </section>
+        ))}
       </div>
+      {movies.length > 1 && (
+        <>
+          <div className="home-hero-controls">
+            <button type="button" aria-label="Banner trước" onClick={onPrev}>
+              <ChevronLeft size={26} />
+            </button>
+            <button type="button" aria-label="Banner tiếp theo" onClick={onNext}>
+              <ChevronRight size={26} />
+            </button>
+          </div>
+          <div className="home-hero-dots">
+            {movies.map((movie, index) => (
+              <span className={index === visibleIndex ? "active" : ""} key={movie.id || movie.title} />
+            ))}
+          </div>
+        </>
+      )}
     </header>
   );
 }
@@ -442,6 +542,17 @@ function mapComingMovie(movie) {
     date: formatDate(movie.releaseDate),
     description: movie.description || "Thông tin phim sẽ được CineVe cập nhật sớm.",
     image: assetUrl(movie.posterUrl)
+  };
+}
+
+function mapHeroMovie(movie) {
+  return {
+    title: movie.title,
+    id: movie.id,
+    rating: movie.ageRating || "P",
+    image: assetUrl(movie.posterUrl),
+    description: movie.description || heroMovie.description,
+    trailerUrl: movie.trailerUrl || ""
   };
 }
 

@@ -102,55 +102,56 @@ function AddMoviePage() {
   );
 
   const handleCreateGenre = async () => {
-    const name = newGenreName.trim();
+    const names = splitGenreNames(newGenreName);
 
-    if (!name) {
+    if (!names.length) {
       toast.error("Vui lòng nhập tên thể loại");
       return;
     }
 
     try {
       setIsCreatingGenre(true);
-      const existingGenre = findGenreByName(genres, name);
+      let currentGenres = genres;
+      const genreIds = [];
 
-      if (existingGenre?.id) {
-        setSelectedGenres([existingGenre.id]);
-        setNewGenreName("");
-        setIsAddingGenre(false);
-        toast.success("Thao tác thành công");
-        return;
+      for (const name of names) {
+        const existingGenre = findGenreByName(currentGenres, name);
+
+        if (existingGenre?.id) {
+          genreIds.push(existingGenre.id);
+          continue;
+        }
+
+        try {
+          const createdGenre = await adminGenreApi.create({
+            name,
+            description: ""
+          });
+
+          if (createdGenre?.id) {
+            currentGenres = appendUniqueGenre(currentGenres, createdGenre);
+            genreIds.push(createdGenre.id);
+          }
+        } catch (error) {
+          const latestGenres = asArray(await adminGenreApi.list());
+          currentGenres = mergeGenres(currentGenres, latestGenres);
+          const existingAfterReload = findGenreByName(currentGenres, name);
+
+          if (existingAfterReload?.id) {
+            genreIds.push(existingAfterReload.id);
+            continue;
+          }
+
+          throw error;
+        }
       }
 
-      const createdGenre = await adminGenreApi.create({
-        name,
-        description: ""
-      });
-
-      if (createdGenre?.id) {
-        setGenres((current) => [...current, createdGenre]);
-        setSelectedGenres([createdGenre.id]);
-      }
-
+      setGenres(currentGenres);
+      setSelectedGenres((current) => uniqueIds([...current, ...genreIds]));
       setNewGenreName("");
       setIsAddingGenre(false);
       toast.success("Thao tác thành công");
     } catch (error) {
-      try {
-        const latestGenres = asArray(await adminGenreApi.list());
-        setGenres(latestGenres);
-        const existingGenre = findGenreByName(latestGenres, name);
-
-        if (existingGenre?.id) {
-          setSelectedGenres([existingGenre.id]);
-          setNewGenreName("");
-          setIsAddingGenre(false);
-          toast.success("Thao tác thành công");
-          return;
-        }
-      } catch {
-        // Fall through to the original API error below.
-      }
-
       toast.error(getErrorMessage(error));
     } finally {
       setIsCreatingGenre(false);
@@ -207,11 +208,17 @@ function AddMoviePage() {
     }
   };
 
+  const handleFormKeyDown = (event) => {
+    if (event.key === "Enter" && event.target.tagName !== "TEXTAREA") {
+      event.preventDefault();
+    }
+  };
+
   return (
     <div className="admin-shell">
       <div className="admin-workspace">
         <main className="add-movie-main">
-          <form className="add-movie-layout" key={movieId ? `movie-${movieId}-${movieForm ? "ready" : "loading"}` : "new"} onSubmit={handleSubmit}>
+          <form className="add-movie-layout" key={movieId ? `movie-${movieId}-${movieForm ? "ready" : "loading"}` : "new"} onSubmit={handleSubmit} onKeyDown={handleFormKeyDown}>
             <aside className="add-movie-side">
               <section className="add-movie-glass poster-panel">
                 <label className="poster-dropzone">
@@ -452,9 +459,25 @@ function mergeGenres(existingGenres, movieGenres) {
   return Array.from(map.values());
 }
 
+function appendUniqueGenre(genres, genre) {
+  return mergeGenres(genres, [genre]);
+}
+
 function findGenreByName(genres, name) {
   const normalizedName = normalizeGenreName(name);
   return genres.find((genre) => normalizeGenreName(genre.name) === normalizedName);
+}
+
+function splitGenreNames(value) {
+  const names = value
+    .split(",")
+    .map((name) => name.trim())
+    .filter(Boolean);
+  return Array.from(new Map(names.map((name) => [normalizeGenreName(name), name])).values());
+}
+
+function uniqueIds(ids) {
+  return Array.from(new Set(ids.filter(Boolean)));
 }
 
 function normalizeGenreName(value = "") {

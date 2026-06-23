@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { movieApi } from "../api/clientApi";
 import AccountNavActions from "../components/common/AccountNavActions.jsx";
+import TrailerModal from "../components/common/TrailerModal.jsx";
 import { assetUrl, formatTime } from "../utils/format";
 
 const movie = {
@@ -69,6 +70,7 @@ function MovieDetailPage() {
   const [movieData, setMovieData] = useState(movie);
   const [reviewItems, setReviewItems] = useState(reviews);
   const [showtimeGroups, setShowtimeGroups] = useState(showtimes);
+  const [activeTrailer, setActiveTrailer] = useState(null);
 
   useEffect(() => {
     Promise.all([movieApi.detail(id), movieApi.reviews(id), movieApi.showtimes(id)])
@@ -88,6 +90,15 @@ function MovieDetailPage() {
       });
   }, [id]);
 
+  const handleOpenTrailer = () => {
+    if (!movieData.trailerUrl) {
+      window.alert("Phim này chưa có trailer");
+      return;
+    }
+
+    setActiveTrailer(movieData);
+  };
+
   return (
     <div className="movie-detail-page">
       <DetailNavbar />
@@ -106,7 +117,7 @@ function MovieDetailPage() {
               </div>
               <h1>{movieData.title}</h1>
               <div className="detail-actions-row">
-                <button className="trailer-button" type="button">
+                <button className="trailer-button" type="button" onClick={handleOpenTrailer}>
                   <Play size={20} fill="currentColor" />
                   Xem Trailer
                 </button>
@@ -235,6 +246,7 @@ function MovieDetailPage() {
           </aside>
         </section>
       </main>
+      <TrailerModal title={activeTrailer?.title} trailerUrl={activeTrailer?.trailerUrl} onClose={() => setActiveTrailer(null)} />
     </div>
   );
 }
@@ -301,6 +313,7 @@ function mapDetailMovie(item) {
     rating: "5.0",
     reviewCount: "0",
     description: item.description || movie.description,
+    trailerUrl: item.trailerUrl || "",
     details: [
       ["Đạo diễn", item.director || "Đang cập nhật"],
       ["Thời lượng", `${item.durationMinutes || "--"} phút`],

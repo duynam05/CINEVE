@@ -21,7 +21,7 @@ import {
   Warehouse,
   Wrench
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { adminCinemaApi } from "../api/adminApi";
 import { getErrorMessage } from "../api/axiosClient";
@@ -31,8 +31,11 @@ const adminAvatar =
   "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=240&q=85";
 
 function CinemaManagementPage() {
+  const navigate = useNavigate();
   const [cinemas, setCinemas] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 8;
 
   const loadCinemas = async () => {
     try {
@@ -52,8 +55,22 @@ function CinemaManagementPage() {
   }, []);
 
   const cityCount = useMemo(() => new Set(cinemas.map((cinema) => cinema.city).filter(Boolean)).size, [cinemas]);
+  const totalPages = Math.max(1, Math.ceil(cinemas.length / pageSize));
+  const pagedCinemas = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    return cinemas.slice(startIndex, startIndex + pageSize);
+  }, [cinemas, currentPage]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   const handleDelete = async (cinema) => {
+    const confirmed = window.confirm(`Bạn có chắc chắn muốn xóa hẳn rạp "${cinema.name}" khỏi database không?`);
+    if (!confirmed) return;
+
     try {
       await adminCinemaApi.remove(cinema.id);
       toast.success("Thao tác thành công");
@@ -84,7 +101,17 @@ function CinemaManagementPage() {
             <CinemaStat icon={Wrench} label="Đang bảo trì" value={cinemas.filter((cinema) => cinema.tone === "maintenance").length} tone="danger" />
           </section>
 
-          <CinemaTable cinemas={cinemas} onDelete={handleDelete} />
+          <CinemaTable
+            cinemas={pagedCinemas}
+            total={cinemas.length}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onEdit={(cinema) => navigate(`/cinemas/new?id=${cinema.id}&mode=edit`)}
+            onRooms={(cinema) => navigate(`/rooms?cinemaId=${cinema.id}`)}
+            onDelete={handleDelete}
+          />
 
           <section className="cinema-map-grid">
             <CinemaMapCard
@@ -179,7 +206,11 @@ function CinemaStat({ icon: Icon, label, value, tone }) {
   );
 }
 
-function CinemaTable({ cinemas, onDelete }) {
+function CinemaTable({ cinemas, total, currentPage, totalPages, pageSize, onPageChange, onEdit, onRooms, onDelete }) {
+  const startItem = total ? (currentPage - 1) * pageSize + 1 : 0;
+  const endItem = Math.min(currentPage * pageSize, total);
+  const pages = Array.from({ length: totalPages }, (_, index) => index + 1);
+
   return (
     <section className="cinema-table-card">
       <div className="cinema-table-scroll">
@@ -211,8 +242,8 @@ function CinemaTable({ cinemas, onDelete }) {
                 </td>
                 <td>
                   <div className="cinema-row-actions">
-                    <button type="button" aria-label={`Sửa ${cinema.name}`}><Pencil size={18} /></button>
-                    <button type="button" aria-label={`Xem phòng ${cinema.name}`}><DoorOpen size={18} /></button>
+                    <button type="button" aria-label={`Sửa ${cinema.name}`} onClick={() => onEdit(cinema)}><Pencil size={18} /></button>
+                    <button type="button" aria-label={`Xem phòng ${cinema.name}`} onClick={() => onRooms(cinema)}><DoorOpen size={18} /></button>
                     <button type="button" aria-label={`Xóa ${cinema.name}`} onClick={() => onDelete(cinema)}><Trash2 size={18} /></button>
                   </div>
                 </td>
@@ -226,13 +257,15 @@ function CinemaTable({ cinemas, onDelete }) {
         </table>
       </div>
       <div className="cinema-pagination">
-        <p>Hiển thị 1-{cinemas.length} trên {cinemas.length} rạp</p>
+        <p>Hiển thị {startItem}-{endItem} trên {total} rạp</p>
         <div>
-          <button type="button"><ChevronLeft size={18} /></button>
-          <button className="active" type="button">1</button>
-          <button type="button">2</button>
-          <button type="button">3</button>
-          <button type="button"><ChevronRight size={18} /></button>
+          <button type="button" disabled={currentPage <= 1} onClick={() => onPageChange(currentPage - 1)}><ChevronLeft size={18} /></button>
+          {pages.map((page) => (
+            <button className={page === currentPage ? "active" : ""} type="button" key={page} onClick={() => onPageChange(page)}>
+              {page}
+            </button>
+          ))}
+          <button type="button" disabled={currentPage >= totalPages} onClick={() => onPageChange(currentPage + 1)}><ChevronRight size={18} /></button>
         </div>
       </div>
     </section>

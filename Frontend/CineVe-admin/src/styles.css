@@ -2784,6 +2784,32 @@ a {
   text-transform: uppercase;
 }
 
+.room-cinema-select {
+  display: grid;
+  gap: 8px;
+  padding: 16px 18px;
+  border-bottom: 1px solid rgba(175, 135, 130, 0.12);
+}
+
+.room-cinema-select span {
+  color: var(--muted);
+  font-family: "Hanken Grotesk", sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.room-cinema-select select {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid rgba(175, 135, 130, 0.22);
+  border-radius: 8px;
+  background: rgba(18, 20, 20, 0.88);
+  color: var(--text);
+  padding: 0 12px;
+  outline: none;
+}
+
 .room-list {
   max-height: 640px;
   overflow-y: auto;

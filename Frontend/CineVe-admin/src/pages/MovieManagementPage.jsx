@@ -6,9 +6,9 @@ import {
   ChevronRight,
   Clapperboard,
   Eye,
+  EyeOff,
   Film,
   LayoutDashboard,
-  MoreVertical,
   Pencil,
   Plus,
   Popcorn,
@@ -32,6 +32,8 @@ function MovieManagementPage() {
   const [query, setQuery] = useState("");
   const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 12;
 
   const loadMovies = async () => {
     try {
@@ -58,7 +60,26 @@ function MovieManagementPage() {
     );
   }, [movies, query]);
 
+  const totalPages = Math.max(1, Math.ceil(visibleMovies.length / pageSize));
+  const pagedMovies = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    return visibleMovies.slice(startIndex, startIndex + pageSize);
+  }, [currentPage, visibleMovies]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [query]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
   const handleDelete = async (movie) => {
+    const confirmed = window.confirm(`Bạn có chắc chắn muốn xóa hẳn phim "${movie.title}" khỏi database không?`);
+    if (!confirmed) return;
+
     try {
       await adminMovieApi.remove(movie.id);
       toast.success("Thao tác thành công");
@@ -108,12 +129,15 @@ function MovieManagementPage() {
           </section>
 
           <MovieTable
-            movies={visibleMovies}
-            total={movies.length}
+            movies={pagedMovies}
+            total={visibleMovies.length}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
             onDelete={handleDelete}
-            onView={(movie) => navigate(`/movies/new?id=${movie.id}&mode=view`)}
+            onView={handleStatusToggle}
             onEdit={(movie) => navigate(`/movies/new?id=${movie.id}&mode=edit`)}
-            onStatusToggle={handleStatusToggle}
           />
         </main>
         <MovieFooter />
@@ -195,7 +219,11 @@ function MovieStat({ icon: Icon, label, value, tone }) {
   );
 }
 
-function MovieTable({ movies, total, onDelete, onView, onEdit, onStatusToggle }) {
+function MovieTable({ movies, total, currentPage, totalPages, pageSize, onPageChange, onDelete, onView, onEdit }) {
+  const startItem = total ? (currentPage - 1) * pageSize + 1 : 0;
+  const endItem = Math.min(currentPage * pageSize, total);
+  const pages = Array.from({ length: totalPages }, (_, index) => index + 1);
+
   return (
     <section className="movie-table-card">
       <div className="movie-table-scroll">
@@ -239,10 +267,11 @@ function MovieTable({ movies, total, onDelete, onView, onEdit, onStatusToggle })
                 </td>
                 <td>
                   <div className="movie-row-actions">
-                    <button type="button" aria-label={`Xem ${movie.title}`} onClick={() => onView(movie)}><Eye size={17} /></button>
+                    <button type="button" aria-label={`${movie.rawStatus === "HIDDEN" ? "Hiện" : "Ẩn"} ${movie.title}`} onClick={() => onView(movie)}>
+                      {movie.rawStatus === "HIDDEN" ? <EyeOff size={17} /> : <Eye size={17} />}
+                    </button>
                     <button type="button" aria-label={`Sửa ${movie.title}`} onClick={() => onEdit(movie)}><Pencil size={17} /></button>
                     <button type="button" aria-label={`Xóa ${movie.title}`} onClick={() => onDelete(movie)}><Trash2 size={17} /></button>
-                    <button type="button" aria-label={`Đổi trạng thái ${movie.title}`} onClick={() => onStatusToggle(movie)}><MoreVertical size={17} /></button>
                   </div>
                 </td>
               </tr>
@@ -255,14 +284,15 @@ function MovieTable({ movies, total, onDelete, onView, onEdit, onStatusToggle })
         </table>
       </div>
       <div className="movie-pagination">
-        <span>Đang hiển thị 1-{movies.length} của {total} phim</span>
+        <span>Đang hiển thị {startItem}-{endItem} của {total} phim</span>
         <div>
-          <button type="button"><ChevronLeft size={18} /></button>
-          <button type="button" className="active">1</button>
-          <button type="button">2</button>
-          <button type="button">3</button>
-          <span>...</span>
-          <button type="button"><ChevronRight size={18} /></button>
+          <button type="button" disabled={currentPage <= 1} onClick={() => onPageChange(currentPage - 1)}><ChevronLeft size={18} /></button>
+          {pages.map((page) => (
+            <button type="button" className={page === currentPage ? "active" : ""} key={page} onClick={() => onPageChange(page)}>
+              {page}
+            </button>
+          ))}
+          <button type="button" disabled={currentPage >= totalPages} onClick={() => onPageChange(currentPage + 1)}><ChevronRight size={18} /></button>
         </div>
       </div>
     </section>
