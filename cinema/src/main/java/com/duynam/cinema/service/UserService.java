@@ -21,8 +21,6 @@ import com.duynam.cinema.dto.request.ResendEmailVerificationRequest;
 import com.duynam.cinema.dto.request.ResetPasswordRequest;
 import com.duynam.cinema.dto.request.UserUpdateRequest;
 import com.duynam.cinema.dto.request.VerifyEmailRequest;
-import com.duynam.cinema.dto.response.EmailVerificationResponse;
-import com.duynam.cinema.dto.response.ForgotPasswordResponse;
 import com.duynam.cinema.dto.response.RegisterResponse;
 import com.duynam.cinema.dto.response.UserResponse;
 import com.duynam.cinema.entity.AuthToken;
@@ -38,7 +36,9 @@ import com.duynam.cinema.repository.UserRepository;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -74,9 +74,10 @@ public class UserService {
         User savedUser = userRepository.save(user);
         AuthToken verificationToken = createAuthToken(savedUser, AuthTokenType.EMAIL_VERIFICATION, EMAIL_VERIFICATION_DURATION_MINUTES);
 
+        log.info("Email verification OTP for {}: {}", email, verificationToken.getOtp());
+
         return RegisterResponse.builder()
                 .user(userMapper.toUserResponse(savedUser))
-                .verificationOtp(verificationToken.getOtp())
                 .build();
     }
 
@@ -106,7 +107,7 @@ public class UserService {
         return userMapper.toUserResponse(user);
     }
 
-    public EmailVerificationResponse resendEmailVerification(ResendEmailVerificationRequest request) {
+    public void resendEmailVerification(ResendEmailVerificationRequest request) {
         User user = userRepository.findByEmail(request.getEmail().trim().toLowerCase())
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
 
@@ -115,13 +116,10 @@ public class UserService {
         }
 
         AuthToken token = createAuthToken(user, AuthTokenType.EMAIL_VERIFICATION, EMAIL_VERIFICATION_DURATION_MINUTES);
-
-        return EmailVerificationResponse.builder()
-                .verificationOtp(token.getOtp())
-                .build();
+        log.info("Resend email verification OTP for {}: {}", user.getEmail(), token.getOtp());
     }
 
-    public ForgotPasswordResponse forgotPassword(ForgotPasswordRequest request) {
+    public void forgotPassword(ForgotPasswordRequest request) {
         User user = userRepository.findByEmail(request.getEmail().trim().toLowerCase())
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
 
@@ -130,11 +128,7 @@ public class UserService {
         }
 
         AuthToken token = createAuthToken(user, AuthTokenType.PASSWORD_RESET, PASSWORD_RESET_DURATION_MINUTES);
-
-        return ForgotPasswordResponse.builder()
-                .resetToken(token.getToken())
-                .otp(token.getOtp())
-                .build();
+        log.info("Password reset token for {}: {} - OTP: {}", user.getEmail(), token.getToken(), token.getOtp());
     }
 
     public void resetPassword(ResetPasswordRequest request) {

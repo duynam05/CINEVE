@@ -2141,6 +2141,340 @@ GET http://localhost:8080/api/notifications/my
 Authorization: Bearer <user_token>
 ```
 
+## Cập nhật mới nhất ngày 12/07/2026
+
+Trạng thái hiện tại:
+
+- Backend không sửa trong các task gần đây.
+- Frontend user và frontend admin tiếp tục được hoàn thiện theo nguyên tắc giữ nguyên UI tĩnh, chỉ thêm logic API, state, toast, phân trang và modal khi cần.
+- Các build gần nhất cho frontend admin và frontend user đều pass bằng `npm.cmd run build`.
+
+Frontend Admin đã xử lý gần đây:
+
+- Đăng nhập từ màn hình user: nếu tài khoản admin thì chuyển sang admin và lưu token.
+- Quản lý phim:
+  - Danh sách phim nối API.
+  - Thêm/sửa phim dùng form hiện có.
+  - Sửa/xem phim đi vào form phim với dữ liệu đã điền.
+  - Thể loại khi thêm phim mặc định rỗng, chỉ có nút thêm mới.
+  - Nhập nhiều thể loại bằng dấu phẩy được tách thành nhiều thể loại.
+  - Thêm thể loại không làm mất thể loại đã chọn trước đó.
+  - Nút mắt dùng để ẩn/hiện phim.
+  - Bỏ nút ba chấm.
+  - Xóa phim có xác nhận.
+  - Phân trang phim 12 phim/trang.
+- Quản lý rạp:
+  - Danh sách rạp nối API.
+  - Sửa rạp dùng form rạp hiện có với `id` và `mode=edit`.
+  - Xem phòng của rạp chuyển sang `/rooms?cinemaId=<id>`.
+  - Xóa rạp có xác nhận.
+  - Phân trang rạp 8 rạp/trang.
+- Quản lý phòng chiếu và ghế:
+  - Bắt buộc chọn rạp trước, sau đó chọn phòng.
+  - Khi vào từ trang rạp, rạp được chọn sẵn theo `cinemaId`.
+  - Đã sửa lỗi `mapCinema is not defined`.
+  - Khi đổi loại ghế, ví dụ từ thường sang VIP, ghế đổi màu ngay trên UI trước khi lưu.
+  - Lưu sơ đồ ghế gọi API cập nhật đúng loại ghế đang hiển thị.
+
+Frontend User đã xử lý gần đây:
+
+- Trang chủ:
+  - Banner lấy toàn bộ phim từ API `/api/movies`.
+  - Banner trượt ngang, có nút quay lại/xem tiếp.
+  - Mỗi banner giữ khoảng 10 giây rồi tự chuyển.
+  - Khi tới banner cuối, tiếp tục trượt ngang sang banner đầu, không lướt ngược.
+  - Kích thước banner đã được hoàn tác về như trước theo yêu cầu.
+  - Nút xem trailer trên banner đã hoạt động.
+- Danh sách phim:
+  - Bộ lọc thể loại lấy từ API `/api/genres`.
+  - Loại trùng thể loại theo tên.
+- Chi tiết phim:
+  - Trailer hiển thị trong modal ngay trong trang, không mở tab YouTube ngoài.
+  - Nếu phim chưa có `trailerUrl`, báo `Phim này chưa có trailer`.
+
+File frontend admin đã sửa/tạo đáng chú ý:
+
+- `Frontend/CineVe-admin/src/api/adminApi.js`
+- `Frontend/CineVe-admin/src/pages/MovieManagementPage.jsx`
+- `Frontend/CineVe-admin/src/pages/AddMoviePage.jsx`
+- `Frontend/CineVe-admin/src/pages/CinemaManagementPage.jsx`
+- `Frontend/CineVe-admin/src/pages/AddCinemaPage.jsx`
+- `Frontend/CineVe-admin/src/pages/RoomManagementPage.jsx`
+- `Frontend/CineVe-admin/src/styles.css`
+
+File frontend user đã sửa/tạo đáng chú ý:
+
+- `Frontend/CineVe-user/src/pages/HomePage.jsx`
+- `Frontend/CineVe-user/src/pages/MoviesPage.jsx`
+- `Frontend/CineVe-user/src/pages/MovieDetailPage.jsx`
+- `Frontend/CineVe-user/src/components/common/TrailerModal.jsx`
+- `Frontend/CineVe-user/src/styles.css`
+
+Các phần nên tiếp tục kiểm tra:
+
+- Admin: lịch chiếu, booking, thanh toán, đồ ăn/combo, mã giảm giá, đánh giá.
+- User: chọn suất chiếu, chọn ghế, thanh toán, vé của tôi, hồ sơ cá nhân.
+
+Nguyên tắc tiếp tục:
+
+- Không sửa backend nếu task chỉ yêu cầu frontend.
+- Không đổi UI tĩnh hiện tại nếu không được yêu cầu.
+- Sau mỗi nhóm chỉnh sửa frontend, chạy build tương ứng:
+
+```bash
+cd D:\cinema\Frontend\CineVe-admin
+npm.cmd run build
+
+cd D:\cinema\Frontend\CineVe-user
+npm.cmd run build
+```
+*** End of File
+
+## Cập nhật mới nhất ngày 12/07/2026
+
+Ghi chú: file này có một mục chi tiết `Cập nhật tiến độ ngày 12/07/2026` đã được thêm ở phần frontend. Mục dưới đây là tóm tắt cuối file để dễ đọc khi lấy ngữ cảnh mới nhất.
+
+Trạng thái hiện tại:
+
+- Backend không sửa trong các task gần đây.
+- Frontend user và frontend admin đang tiếp tục được hoàn thiện theo nguyên tắc giữ nguyên UI tĩnh, chỉ thêm logic API/state/toast/pagination/modal khi cần.
+- Các build gần nhất cho frontend admin và frontend user đều pass với `npm.cmd run build`.
+
+Frontend Admin đã xử lý gần đây:
+
+- Đăng nhập từ màn hình user: nếu tài khoản admin thì chuyển sang admin và lưu token.
+- Quản lý phim:
+  - Danh sách phim nối API.
+  - Thêm/sửa phim dùng form hiện có.
+  - Sửa/xem phim đi vào form phim với dữ liệu đã điền.
+  - Thể loại khi thêm phim mặc định rỗng, chỉ có nút thêm mới.
+  - Nhập nhiều thể loại bằng dấu phẩy được tách thành nhiều thể loại.
+  - Thêm thể loại không làm mất thể loại đã chọn trước đó.
+  - Nút mắt dùng để ẩn/hiện phim.
+  - Bỏ nút ba chấm.
+  - Xóa phim có xác nhận.
+  - Phân trang phim 12 phim/trang.
+- Quản lý rạp:
+  - Danh sách rạp nối API.
+  - Sửa rạp dùng form rạp hiện có với `id` và `mode=edit`.
+  - Xem phòng của rạp chuyển sang `/rooms?cinemaId=<id>`.
+  - Xóa rạp có xác nhận.
+  - Phân trang rạp 8 rạp/trang.
+- Quản lý phòng chiếu và ghế:
+  - Bắt buộc chọn rạp trước, sau đó chọn phòng.
+  - Khi vào từ trang rạp, rạp được chọn sẵn theo `cinemaId`.
+  - Đã sửa lỗi `mapCinema is not defined`.
+  - Khi đổi loại ghế, ví dụ từ thường sang VIP, ghế đổi màu ngay trên UI trước khi lưu.
+  - Lưu sơ đồ ghế gọi API cập nhật đúng loại ghế đang hiển thị.
+
+Frontend User đã xử lý gần đây:
+
+- Trang chủ:
+  - Banner lấy toàn bộ phim từ API `/api/movies`.
+  - Banner trượt ngang, có nút quay lại/xem tiếp.
+  - Mỗi banner giữ khoảng 10 giây rồi tự chuyển.
+  - Khi tới banner cuối, tiếp tục trượt ngang sang banner đầu, không lướt ngược.
+  - Kích thước banner đã được hoàn tác về như trước theo yêu cầu.
+  - Nút xem trailer trên banner đã hoạt động.
+- Danh sách phim:
+  - Bộ lọc thể loại lấy từ API `/api/genres`.
+  - Loại trùng thể loại theo tên.
+- Chi tiết phim:
+  - Trailer hiển thị trong modal ngay trong trang, không mở tab YouTube ngoài.
+  - Nếu phim chưa có `trailerUrl`, báo `Phim này chưa có trailer`.
+
+File frontend admin đã sửa/tạo đáng chú ý:
+
+- `Frontend/CineVe-admin/src/api/adminApi.js`
+- `Frontend/CineVe-admin/src/pages/MovieManagementPage.jsx`
+- `Frontend/CineVe-admin/src/pages/AddMoviePage.jsx`
+- `Frontend/CineVe-admin/src/pages/CinemaManagementPage.jsx`
+- `Frontend/CineVe-admin/src/pages/AddCinemaPage.jsx`
+- `Frontend/CineVe-admin/src/pages/RoomManagementPage.jsx`
+- `Frontend/CineVe-admin/src/styles.css`
+
+File frontend user đã sửa/tạo đáng chú ý:
+
+- `Frontend/CineVe-user/src/pages/HomePage.jsx`
+- `Frontend/CineVe-user/src/pages/MoviesPage.jsx`
+- `Frontend/CineVe-user/src/pages/MovieDetailPage.jsx`
+- `Frontend/CineVe-user/src/components/common/TrailerModal.jsx`
+- `Frontend/CineVe-user/src/styles.css`
+
+Các phần nên tiếp tục kiểm tra:
+
+- Admin: lịch chiếu, booking, thanh toán, đồ ăn/combo, mã giảm giá, đánh giá.
+- User: chọn suất chiếu, chọn ghế, thanh toán, vé của tôi, hồ sơ cá nhân.
+
+Nguyên tắc tiếp tục:
+
+- Không sửa backend nếu task chỉ yêu cầu frontend.
+- Không đổi UI tĩnh hiện tại nếu không được yêu cầu.
+- Sau mỗi nhóm chỉnh sửa frontend, chạy build tương ứng:
+
+```bash
+cd D:\cinema\Frontend\CineVe-admin
+npm.cmd run build
+
+cd D:\cinema\Frontend\CineVe-user
+npm.cmd run build
+```
+
+## Cập nhật tiến độ ngày 12/07/2026
+
+Trạng thái tổng quát mới nhất:
+
+- Backend vẫn giữ nguyên, không sửa trong các task gần đây.
+- Frontend user và frontend admin tiếp tục được nối API theo nguyên tắc giữ nguyên UI tĩnh hiện có.
+- Các thay đổi gần đây tập trung vào hoàn thiện thao tác Admin và một số luồng User đã phản hồi lỗi khi test thủ công.
+- Các build gần nhất đã chạy thành công bằng `npm.cmd run build` cho frontend tương ứng sau mỗi nhóm chỉnh sửa.
+
+### Frontend Admin đã xử lý thêm
+
+Admin đăng nhập:
+
+- Khi đăng nhập từ màn hình user, nếu tài khoản là admin thì chuyển sang trang admin.
+- Admin app nhận token từ query param, lưu token vào localStorage để axios admin gửi `Authorization: Bearer <token>`.
+
+Quản lý phim:
+
+- Trang danh sách phim đã nối API list, xóa, ẩn/hiện trạng thái.
+- Nút thêm phim mở form thêm phim mới.
+- Nút sửa phim chuyển sang form phim với query `id` và `mode=edit`, form tự tải dữ liệu phim và lưu bằng API update.
+- Nút xem phim từng có modal, sau đó chuyển sang cùng form phim với dữ liệu đã điền sẵn.
+- Nút mắt trong bảng phim hiện dùng để ẩn/hiện phim.
+- Bỏ nút dấu ba chấm ở cột thao tác phim.
+- Nút thùng rác xóa phim có xác nhận trước khi gọi API xóa.
+- Phân trang phim đã hoạt động, hiển thị 12 phim/trang.
+- Form thêm/sửa phim:
+  - Không tự submit khi nhấn Enter.
+  - Thể loại mặc định khi vào trang thêm phim là chưa có thể loại nào, chỉ có nút thêm mới.
+  - Khi thêm thể loại, các thể loại đã chọn trước đó không bị mất.
+  - Nếu nhập `Hoạt hình, Gia đình, Hài` thì tách thành 3 thể loại.
+  - Nếu thể loại đã tồn tại thì chọn lại thể loại đó, không tạo trùng.
+
+Quản lý rạp:
+
+- Trang quản lý rạp đã nối danh sách từ API admin.
+- Nút thêm rạp gọi form thêm rạp.
+- Nút sửa rạp chuyển sang form rạp với query `id` và `mode=edit`, form tự load dữ liệu rạp và lưu bằng `PUT /api/admin/cinemas/{id}`.
+- Nút xem phòng của rạp chuyển sang `/rooms?cinemaId=<id>`.
+- Nút xóa rạp có xác nhận trước khi gọi API xóa.
+- Phân trang rạp đã hoạt động, hiển thị 8 rạp/trang.
+
+Quản lý phòng chiếu và ghế:
+
+- Trang phòng chiếu đã đổi luồng chọn:
+  - Chọn rạp chiếu trước.
+  - Sau đó mới hiển thị danh sách phòng của rạp đó.
+  - Chọn phòng thì sơ đồ ghế bên phải load theo phòng đã chọn.
+- Nếu đi từ trang rạp qua nút xem phòng, rạp được chọn sẵn theo `cinemaId`.
+- Nút thêm phòng mới truyền kèm `cinemaId` nếu đang chọn rạp.
+- Đã sửa lỗi runtime `mapCinema is not defined` bằng cách thêm helper `mapCinema` trong `RoomManagementPage.jsx`.
+- Phần chỉnh ghế đã có phản hồi trực tiếp trên UI:
+  - Chọn loại ghế, ví dụ VIP, rồi click ghế thường thì ghế đổi màu VIP ngay.
+  - Khi bấm lưu sơ đồ, API cập nhật đúng loại ghế đang hiển thị tạm.
+  - Click lại cùng ghế với cùng loại đang chọn sẽ bỏ chọn và trả về màu cũ trước khi lưu.
+
+Các file frontend admin đã sửa/tạo đáng chú ý trong các task gần đây:
+
+- `Frontend/CineVe-admin/src/api/adminApi.js`
+- `Frontend/CineVe-admin/src/pages/MovieManagementPage.jsx`
+- `Frontend/CineVe-admin/src/pages/AddMoviePage.jsx`
+- `Frontend/CineVe-admin/src/pages/CinemaManagementPage.jsx`
+- `Frontend/CineVe-admin/src/pages/AddCinemaPage.jsx`
+- `Frontend/CineVe-admin/src/pages/RoomManagementPage.jsx`
+- `Frontend/CineVe-admin/src/styles.css`
+
+Build admin gần nhất:
+
+```bash
+cd D:\cinema\Frontend\CineVe-admin
+npm.cmd run build
+```
+
+Kết quả:
+
+- Build pass.
+- Vite build thành công sau các chỉnh sửa phim, rạp, phòng chiếu và ghế.
+
+### Frontend User đã xử lý thêm
+
+Trang chủ:
+
+- Banner trang chủ lấy danh sách phim từ API `/api/movies`.
+- Banner đã chuyển thành carousel trượt ngang.
+- Có hai nút để người dùng quay lại banner trước hoặc xem banner tiếp theo.
+- Mỗi banner giữ khoảng 10 giây rồi tự chuyển sang banner tiếp theo.
+- Khi tới banner cuối, carousel tiếp tục lướt ngang sang banner đầu bằng clone slide, không có hiệu ứng lướt ngược về đầu.
+- Đã thử chỉnh kích thước ảnh banner nhỏ lại, sau đó đã hoàn tác theo yêu cầu để trở lại kích thước như trước.
+- Nút xem trailer trên banner đã hoạt động.
+
+Danh sách phim:
+
+- Bộ lọc thể loại lấy từ `GET /api/genres`.
+- Danh sách thể loại trong filter được loại trùng theo tên.
+- Nếu API thể loại lỗi hoặc không có dữ liệu, frontend tự suy ra thể loại từ danh sách phim đang có.
+
+Chi tiết phim:
+
+- Nút xem trailer không còn mở tab YouTube ngoài.
+- Trailer hiển thị trong modal ngay trong trang.
+- Modal trailer dùng iframe nhúng, hỗ trợ URL YouTube và Vimeo phổ biến.
+- Nếu phim chưa có `trailerUrl`, hiển thị thông báo tiếng Việt: `Phim này chưa có trailer`.
+
+Các file frontend user đã sửa/tạo đáng chú ý trong các task gần đây:
+
+- `Frontend/CineVe-user/src/pages/HomePage.jsx`
+- `Frontend/CineVe-user/src/pages/MoviesPage.jsx`
+- `Frontend/CineVe-user/src/pages/MovieDetailPage.jsx`
+- `Frontend/CineVe-user/src/components/common/TrailerModal.jsx`
+- `Frontend/CineVe-user/src/styles.css`
+
+Build user gần nhất:
+
+```bash
+cd D:\cinema\Frontend\CineVe-user
+npm.cmd run build
+```
+
+Kết quả:
+
+- Build pass.
+- Vite build thành công sau các chỉnh sửa banner, trailer và bộ lọc thể loại.
+
+### Ghi chú kỹ thuật hiện tại
+
+- Không đổi UI/layout chủ đạo trong các phần Admin/User đã chỉnh; các thay đổi chủ yếu là state, API call, mapping, phân trang, modal trailer và xử lý thao tác.
+- Một số text trong terminal PowerShell có thể hiển thị sai dấu do encoding, nhưng file nguồn React/CSS vẫn build được.
+- Khi sửa tài liệu hoặc code tiếng Việt, cần chú ý giữ UTF-8 để tránh lỗi ký tự.
+- `git status` đôi khi cần dùng:
+
+```bash
+git -c safe.directory=D:/cinema status --short
+```
+
+do sandbox chạy dưới user khác owner repository.
+
+### Các phần còn cần tiếp tục kiểm tra/thực hiện
+
+Frontend Admin:
+
+- Kiểm tra tiếp các thao tác ở lịch chiếu, booking, thanh toán, đồ ăn/combo, mã giảm giá, đánh giá nếu người dùng phát hiện nút chưa hoạt động.
+- Nếu cần trạng thái bật/tắt rạp riêng biệt, backend hiện cần có endpoint rõ ràng hoặc dùng update rạp với field `status`; frontend đã thêm service `updateStatus` nhưng chưa dùng trong UI rạp.
+- Trang thêm/sửa rạp hiện giữ UI tĩnh cũ, chưa thêm field mô tả vì UI hiện tại không có input mô tả.
+
+Frontend User:
+
+- Cần tiếp tục nối và test kỹ các trang chọn suất chiếu, chọn ghế, thanh toán, vé của tôi, hồ sơ cá nhân.
+- Trailer phụ thuộc backend trả `trailerUrl`; nếu dữ liệu phim chưa có URL trailer thì modal sẽ không mở và chỉ báo chưa có trailer.
+
+Nguyên tắc tiếp tục:
+
+- Không sửa backend nếu task chỉ yêu cầu frontend.
+- Không đổi UI tĩnh hiện tại nếu không được yêu cầu.
+- Khi thêm logic mới phải build lại frontend tương ứng bằng `npm.cmd run build`.
+
 ## Cập nhật tiến độ frontend ngày 17/06/2026
 
 Trạng thái mới nhất:
@@ -2641,3 +2975,53 @@ CHANGE COLUMN `read` is_read bit NOT NULL;
 GET http://localhost:8080/api/notifications/my
 Authorization: Bearer <user_token>
 ```
+
+## Cập nhật cuối file ngày 12/07/2026
+
+Trạng thái hiện tại:
+
+- Backend không sửa trong các task gần đây.
+- Frontend user và frontend admin tiếp tục được hoàn thiện theo nguyên tắc giữ nguyên UI tĩnh, chỉ thêm logic API, state, toast, phân trang và modal khi cần.
+- Các build gần nhất cho frontend admin và frontend user đều pass bằng `npm.cmd run build`.
+
+Frontend Admin đã xử lý gần đây:
+
+- Đăng nhập từ màn hình user: nếu tài khoản admin thì chuyển sang admin và lưu token.
+- Quản lý phim: nối API danh sách, thêm/sửa/xóa/ẩn-hiện; sửa/xem dùng form phim có dữ liệu sẵn; phân trang 12 phim/trang; thêm thể loại không làm mất thể loại cũ và hỗ trợ nhập nhiều thể loại bằng dấu phẩy.
+- Quản lý rạp: nối API danh sách, thêm/sửa/xóa; sửa dùng form rạp với `id` và `mode=edit`; xem phòng chuyển sang `/rooms?cinemaId=<id>`; phân trang 8 rạp/trang.
+- Quản lý phòng chiếu và ghế: chọn rạp trước rồi chọn phòng; đi từ trang rạp tự chọn sẵn rạp theo `cinemaId`; sửa lỗi `mapCinema is not defined`; đổi loại ghế thì màu ghế đổi ngay trên UI trước khi lưu.
+
+Frontend User đã xử lý gần đây:
+
+- Trang chủ: banner lấy phim từ `/api/movies`, trượt ngang, có nút trước/sau, tự chuyển sau khoảng 10 giây, cuối danh sách vẫn trượt tiếp sang banner đầu; kích thước banner đã hoàn tác về như trước; nút xem trailer hoạt động.
+- Trang danh sách phim: bộ lọc thể loại lấy từ `/api/genres` và loại trùng theo tên.
+- Trang chi tiết phim: trailer hiển thị trong modal ngay trong trang, không mở tab YouTube ngoài; nếu thiếu `trailerUrl` thì báo `Phim này chưa có trailer`.
+
+File frontend admin đã sửa/tạo đáng chú ý:
+
+- `Frontend/CineVe-admin/src/api/adminApi.js`
+- `Frontend/CineVe-admin/src/pages/MovieManagementPage.jsx`
+- `Frontend/CineVe-admin/src/pages/AddMoviePage.jsx`
+- `Frontend/CineVe-admin/src/pages/CinemaManagementPage.jsx`
+- `Frontend/CineVe-admin/src/pages/AddCinemaPage.jsx`
+- `Frontend/CineVe-admin/src/pages/RoomManagementPage.jsx`
+- `Frontend/CineVe-admin/src/styles.css`
+
+File frontend user đã sửa/tạo đáng chú ý:
+
+- `Frontend/CineVe-user/src/pages/HomePage.jsx`
+- `Frontend/CineVe-user/src/pages/MoviesPage.jsx`
+- `Frontend/CineVe-user/src/pages/MovieDetailPage.jsx`
+- `Frontend/CineVe-user/src/components/common/TrailerModal.jsx`
+- `Frontend/CineVe-user/src/styles.css`
+
+Các phần nên tiếp tục kiểm tra:
+
+- Admin: lịch chiếu, booking, thanh toán, đồ ăn/combo, mã giảm giá, đánh giá.
+- User: chọn suất chiếu, chọn ghế, thanh toán, vé của tôi, hồ sơ cá nhân.
+
+Nguyên tắc tiếp tục:
+
+- Không sửa backend nếu task chỉ yêu cầu frontend.
+- Không đổi UI tĩnh hiện tại nếu không được yêu cầu.
+- Sau mỗi nhóm chỉnh sửa frontend, chạy build tương ứng bằng `npm.cmd run build`.

@@ -60,14 +60,20 @@ function PaymentPage() {
 
   useEffect(() => {
     const storedDraft = sessionStorage.getItem("cineve_booking_draft");
-    if (!storedDraft) return;
+    if (!storedDraft) {
+      toast.error("Vui lòng chọn suất chiếu và ghế trước khi thanh toán");
+      navigate("/chon-suat-chieu");
+      return;
+    }
 
     try {
       setDraft(JSON.parse(storedDraft));
     } catch {
       sessionStorage.removeItem("cineve_booking_draft");
+      toast.error("Thông tin đặt vé không hợp lệ, vui lòng chọn lại");
+      navigate("/chon-suat-chieu");
     }
-  }, []);
+  }, [navigate]);
 
   const displayOrder = useMemo(() => mapDraftToOrder(draft), [draft]);
   const subtotal = displayOrder.subtotal;
@@ -159,7 +165,11 @@ function PaymentPage() {
             <div className="coupon-row">
               <input
                 value={coupon}
-                onChange={(event) => setCoupon(event.target.value)}
+                onChange={(event) => {
+                  setCoupon(event.target.value);
+                  setCouponResult(null);
+                  setDiscount(0);
+                }}
                 placeholder="Nhập mã ưu đãi của bạn..."
                 type="text"
               />

@@ -2,6 +2,15 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer
+} from "recharts";
+import {
   Bell,
   CalendarDays,
   ChevronRight,
@@ -46,13 +55,13 @@ const sidebarItems = [
 ];
 
 const fallbackRevenueBars = [
-  { day: "Thứ 2", value: "140M", height: 40 },
-  { day: "Thứ 3", value: "210M", height: 65 },
-  { day: "Thứ 4", value: "180M", height: 50 },
-  { day: "Thứ 5", value: "320M", height: 85, active: true },
-  { day: "Thứ 6", value: "195M", height: 60 },
-  { day: "Thứ 7", value: "245M", height: 75 },
-  { day: "Chủ nhật", value: "380M", height: 95 }
+  { day: "Thứ 2", value: "140M", rawRevenue: 140000000 },
+  { day: "Thứ 3", value: "210M", rawRevenue: 210000000 },
+  { day: "Thứ 4", value: "180M", rawRevenue: 180000000 },
+  { day: "Thứ 5", value: "320M", rawRevenue: 320000000 },
+  { day: "Thứ 6", value: "195M", rawRevenue: 195000000 },
+  { day: "Thứ 7", value: "245M", rawRevenue: 245000000 },
+  { day: "Chủ nhật", value: "380M", rawRevenue: 380000000 }
 ];
 
 const fallbackTopMovies = [
@@ -213,19 +222,27 @@ function RevenueChart({ revenueBars }) {
           <option value="month">Tháng này</option>
         </select>
       </div>
-      <div className="revenue-chart">
-        <div className="chart-grid-lines" />
-        {revenueBars.map((bar) => (
-          <div className="chart-bar-wrap" key={bar.day}>
-            <strong>{bar.value}</strong>
-            <span className={bar.active ? "chart-bar active" : "chart-bar"} style={{ height: `${bar.height}%` }} />
-          </div>
-        ))}
-      </div>
-      <div className="chart-days">
-        {revenueBars.map((bar) => (
-          <span key={bar.day}>{bar.day}</span>
-        ))}
+      <div style={{ width: "100%", height: 280, marginTop: "20px" }}>
+        <ResponsiveContainer>
+          <BarChart data={revenueBars}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#333" />
+            <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "#888", fontSize: 13 }} dy={10} />
+            <YAxis 
+              axisLine={false} 
+              tickLine={false} 
+              tick={{ fill: "#888", fontSize: 13 }}
+              tickFormatter={(value) => formatCompactCurrency(value)}
+              width={50}
+            />
+            <Tooltip
+              cursor={{ fill: "rgba(255,255,255,0.05)" }}
+              contentStyle={{ backgroundColor: "#1e1e1e", border: "1px solid #333", borderRadius: "8px" }}
+              itemStyle={{ color: "#fff" }}
+              formatter={(value) => [formatCurrency(value), "Doanh thu"]}
+            />
+            <Bar dataKey="rawRevenue" fill="#e50914" radius={[4, 4, 0, 0]} maxBarSize={45} />
+          </BarChart>
+        </ResponsiveContainer>
       </div>
     </section>
   );
@@ -344,12 +361,10 @@ function mapRevenueBars(data) {
   const items = asArray(data).slice(-7);
   if (!items.length) return fallbackRevenueBars;
 
-  const max = Math.max(...items.map((item) => Number(item.revenue ?? 0)), 1);
-
   return items.map((item, index) => ({
     day: formatDayLabel(item.date),
     value: formatCompactCurrency(item.revenue),
-    height: Math.max(12, Math.round((Number(item.revenue ?? 0) / max) * 95)),
+    rawRevenue: Number(item.revenue ?? 0),
     active: index === items.length - 1
   }));
 }

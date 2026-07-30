@@ -181,7 +181,7 @@ function ShowtimeManagementPage() {
                       </td>
                       <td>
                         <div className="showtime-actions">
-                          <button type="button" aria-label={`Sửa ${item.movie}`}><Pencil size={17} /></button>
+                          <Link className="admin-icon-button" to={`/showtimes/new?id=${item.id}&mode=edit`} aria-label={`Sửa ${item.movie}`}><Pencil size={17} /></Link>
                           <button type="button" aria-label={`Xóa ${item.movie}`} onClick={() => handleDelete(item)}><Trash2 size={17} /></button>
                         </div>
                       </td>

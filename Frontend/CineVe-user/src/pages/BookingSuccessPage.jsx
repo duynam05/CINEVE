@@ -1,8 +1,10 @@
 ﻿import { useEffect, useMemo, useState } from "react";
 import { Bell, Camera, CheckCircle2, Home, Search, Share2, Ticket, Youtube } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import { toast } from "react-toastify";
+import { bookingApi } from "../api/clientApi";
 import AccountNavActions from "../components/common/AccountNavActions.jsx";
-import { formatCurrency, formatDateTime } from "../utils/format";
+import { formatCurrency, formatDateTime, getErrorMessage } from "../utils/format";
 
 const ticket = {
   bookingCode: "CVE-889-204",
@@ -16,18 +18,40 @@ const ticket = {
 };
 
 function BookingSuccessPage() {
+  const [searchParams] = useSearchParams();
   const [latestBooking, setLatestBooking] = useState(null);
 
   useEffect(() => {
+    let ignore = false;
     const storedBooking = sessionStorage.getItem("cineve_latest_booking");
-    if (!storedBooking) return;
 
-    try {
-      setLatestBooking(JSON.parse(storedBooking));
-    } catch {
-      sessionStorage.removeItem("cineve_latest_booking");
+    if (storedBooking) {
+      try {
+        setLatestBooking(JSON.parse(storedBooking));
+        return undefined;
+      } catch {
+        sessionStorage.removeItem("cineve_latest_booking");
+      }
     }
-  }, []);
+
+    const bookingId = searchParams.get("bookingId");
+    if (!bookingId) return undefined;
+
+    const loadBooking = async () => {
+      try {
+        const booking = await bookingApi.detail(bookingId);
+        if (!ignore) setLatestBooking(booking);
+      } catch (error) {
+        if (!ignore) toast.error(getErrorMessage(error, "Không tải được thông tin đặt vé"));
+      }
+    };
+
+    loadBooking();
+
+    return () => {
+      ignore = true;
+    };
+  }, [searchParams]);
 
   const confetti = useMemo(() => {
     const colors = ["#ffb4aa", "#e50914", "#e9c349", "#ffffff"];
@@ -135,8 +159,8 @@ function DigitalTicket({ ticket }) {
         </div>
 
         <div className="ticket-qr-section">
-          <FakeQrCode />
-          <p>Quét mã này tại quầy soát vé hoặc Kiosk tự động</p>
+          <FakeQrCode value={ticket.qrCode} />
+          <p>{ticket.ticketCode ? `Mã vé: ${ticket.ticketCode}` : "Quét mã này tại quầy soát vé hoặc Kiosk tự động"}</p>
         </div>
       </div>
     </article>
@@ -152,9 +176,9 @@ function InfoBlock({ label, value, accent, alignRight }) {
   );
 }
 
-function FakeQrCode() {
+function FakeQrCode({ value }) {
   return (
-    <div className="fake-qr" aria-label="QR Code giả lập">
+    <div className="fake-qr" aria-label={value || "QR Code giả lập"}>
       {Array.from({ length: 49 }, (_, index) => (
         <span key={index} className={(index * 7 + index) % 5 < 3 ? "dark" : ""} />
       ))}
@@ -166,11 +190,13 @@ function mapBookingToTicket(booking) {
   if (!booking) return ticket;
 
   const showtime = booking.showtime || {};
-  const seatCodes = booking.seats?.map((seat) => seat.seatCode || seat.code).filter(Boolean) || [];
-  const foods = booking.foods?.map((food) => `${food.quantity}x ${food.foodName || food.name}`).filter(Boolean) || [];
+  const seatCodes = booking.seats?.map((seat) => seat.code || seat.seatCode).filter(Boolean) || [];
+  const foods = booking.foods?.map((food) => `${food.quantity}x ${food.name || food.foodName}`).filter(Boolean) || [];
 
   return {
     bookingCode: booking.code || booking.id || ticket.bookingCode,
+    ticketCode: booking.ticket?.code,
+    qrCode: booking.ticket?.qrCode,
     movie: showtime.movieTitle || ticket.movie,
     total: formatCurrency(booking.totalAmount),
     cinema: `${showtime.cinemaName || "CineVe"} - ${showtime.roomName || "Phòng chiếu"}`,

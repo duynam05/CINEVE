@@ -29,6 +29,8 @@ function PromotionManagementPage() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   const loadPromotions = async () => {
     try {
@@ -49,12 +51,18 @@ function PromotionManagementPage() {
 
   const visiblePromotions = useMemo(() => {
     const normalized = query.trim().toLowerCase();
+    setCurrentPage(1);
     return promotions.filter((promo) => {
       const matchText = !normalized || [promo.code, promo.name, promo.description].join(" ").toLowerCase().includes(normalized);
       const matchStatus = statusFilter === "all" || promo.status === statusFilter;
       return matchText && matchStatus;
     });
   }, [promotions, query, statusFilter]);
+
+  const totalPages = Math.ceil(visiblePromotions.length / pageSize) || 1;
+  const currentPromotions = useMemo(() => {
+    return visiblePromotions.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  }, [visiblePromotions, currentPage]);
 
   const stats = useMemo(() => {
     const active = promotions.filter((promo) => promo.tone === "active").length;
@@ -131,7 +139,7 @@ function PromotionManagementPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {visiblePromotions.length ? visiblePromotions.map((promo) => (
+                  {currentPromotions.length ? currentPromotions.map((promo) => (
                     <PromotionRow promo={promo} key={promo.code} onDelete={handleDelete} />
                   )) : (
                     <tr>
@@ -143,15 +151,17 @@ function PromotionManagementPage() {
             </div>
 
             <footer className="promotion-pagination">
-              <p>Hiển thị 1-{visiblePromotions.length} trên {promotions.length} mã</p>
+              <p>Hiển thị <strong>{currentPromotions.length > 0 ? (currentPage - 1) * pageSize + 1 : 0}-{Math.min(currentPage * pageSize, visiblePromotions.length)}</strong> trên <strong>{visiblePromotions.length}</strong> mã</p>
               <div>
-                <button type="button" aria-label="Trang trước">
+                <button type="button" aria-label="Trang trước" disabled={currentPage === 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))}>
                   <ChevronLeft size={16} />
                 </button>
-                <button type="button" className="active">1</button>
-                <button type="button">2</button>
-                <button type="button">3</button>
-                <button type="button" aria-label="Trang sau">
+                {Array.from({ length: totalPages }, (_, i) => (
+                  <button key={i + 1} type="button" className={currentPage === i + 1 ? "active" : ""} onClick={() => setCurrentPage(i + 1)}>
+                    {i + 1}
+                  </button>
+                ))}
+                <button type="button" aria-label="Trang sau" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}>
                   <ChevronRight size={16} />
                 </button>
               </div>

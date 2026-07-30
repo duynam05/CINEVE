@@ -271,8 +271,10 @@ function mapBookingsToTickets(bookings) {
   return bookings.map((booking) => {
     const showtime = booking.showtime || {};
     const seatCodes = booking.seats?.map((seat) => seat.code).filter(Boolean).join(", ") || "Đang cập nhật";
-    const isCancelled = booking.status === "CANCELLED" || booking.ticket?.status === "CANCELLED";
-    const isDone = booking.status === "COMPLETED" || booking.ticket?.status === "USED";
+    const showtimeDate = showtime.startTime ? new Date(showtime.startTime) : null;
+    const isPastShowtime = showtimeDate && !Number.isNaN(showtimeDate.getTime()) && showtimeDate < new Date();
+    const isCancelled = ["CANCELLED", "EXPIRED"].includes(booking.status) || ["CANCELLED", "EXPIRED"].includes(booking.ticket?.status);
+    const isDone = booking.status === "COMPLETED" || booking.ticket?.status === "USED" || isPastShowtime;
     const tab = isCancelled ? "cancelled" : isDone ? "watched" : "upcoming";
 
     return {

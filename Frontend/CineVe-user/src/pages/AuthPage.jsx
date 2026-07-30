@@ -81,10 +81,7 @@ function AuthPage({ initialMode = "login" }) {
               onRegistered={(result, email) => {
                 toast.success("Đăng ký thành công, vui lòng xác thực Email");
                 navigate("/xac-thuc-email", {
-                  state: {
-                    email,
-                    otp: result?.verificationOtp
-                  }
+                  state: { email }
                 });
               }}
             />

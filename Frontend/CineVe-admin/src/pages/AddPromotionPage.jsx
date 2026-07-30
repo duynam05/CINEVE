@@ -25,6 +25,7 @@ function AddPromotionPage() {
   const [code, setCode] = useState("");
   const [discount, setDiscount] = useState("");
   const [expiry, setExpiry] = useState("");
+  const [type, setType] = useState("PERCENT");
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -36,7 +37,7 @@ function AddPromotionPage() {
         code,
         name: code || "Mã giảm giá",
         description: "",
-        type: "PERCENT",
+        type: type,
         discountValue: Number(discount || 0),
         minOrderAmount: Number(formData.get("minOrderAmount") || 0),
         maxDiscountAmount: Number(formData.get("maxDiscountAmount") || 0) || null,
@@ -80,17 +81,26 @@ function AddPromotionPage() {
                 </label>
                 <div className="add-promotion-two-cols">
                   <label>
-                    <span>Discount Value (%)</span>
+                    <span>Loại mã giảm</span>
+                    <select value={type} onChange={(e) => setType(e.target.value)}>
+                      <option value="PERCENT">Phần trăm (%)</option>
+                      <option value="FIXED_AMOUNT">Tiền mặt (VNĐ)</option>
+                    </select>
+                  </label>
+                </div>
+                <div className="add-promotion-two-cols" style={{ marginTop: "1rem" }}>
+                  <label>
+                    <span>Discount Value ({type === "PERCENT" ? "%" : "VNĐ"})</span>
                     <div className="add-promotion-input-icon">
                       <input
                         type="number"
                         min="0"
-                        max="100"
+                        max={type === "PERCENT" ? "100" : undefined}
                         value={discount}
                         onChange={(event) => setDiscount(event.target.value)}
                         placeholder="0"
                       />
-                      <strong>%</strong>
+                      <strong>{type === "PERCENT" ? "%" : "đ"}</strong>
                     </div>
                   </label>
                   <label>
@@ -132,11 +142,11 @@ function AddPromotionPage() {
                   <Tag size={18} />
                   Xem trước hiển thị
                 </h2>
-                <div className="promotion-preview-card">
+                  <div className="promotion-preview-card">
                   <span>CineVe Voucher</span>
                   <strong>{code || "CINECODE"}</strong>
                   <div>
-                    <b>{discount ? `${discount}% OFF` : "20% OFF"}</b>
+                    <b>{discount ? (type === "PERCENT" ? `${discount}% OFF` : `${discount}K OFF`) : "20% OFF"}</b>
                     <small>HSD: {formatDate(expiry) || "31/12/2024"}</small>
                   </div>
                 </div>

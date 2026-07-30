@@ -1,12 +1,14 @@
 import React, { useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import AdminLayout from "./layouts/AdminLayout.jsx";
+import AdminProtectedRoute from "./components/AdminProtectedRoute.jsx";
 import AddCinemaPage from "./pages/AddCinemaPage.jsx";
 import AddComboPage from "./pages/AddComboPage.jsx";
 import AddMoviePage from "./pages/AddMoviePage.jsx";
 import AddPromotionPage from "./pages/AddPromotionPage.jsx";
 import AddRoomPage from "./pages/AddRoomPage.jsx";
 import AddShowtimePage from "./pages/AddShowtimePage.jsx";
+import AddUserPage from "./pages/AddUserPage.jsx";
 import BookingManagementPage from "./pages/BookingManagementPage.jsx";
 import CinemaManagementPage from "./pages/CinemaManagementPage.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
@@ -15,6 +17,8 @@ import MovieManagementPage from "./pages/MovieManagementPage.jsx";
 import PromotionManagementPage from "./pages/PromotionManagementPage.jsx";
 import RoomManagementPage from "./pages/RoomManagementPage.jsx";
 import ShowtimeManagementPage from "./pages/ShowtimeManagementPage.jsx";
+import UserManagementPage from "./pages/UserManagementPage.jsx";
+import ReviewManagementPage from "./pages/ReviewManagementPage.jsx";
 
 function App() {
   useEffect(() => {
@@ -47,9 +51,10 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
-      <Route element={<AdminLayout />}>
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/movies/new" element={<AddMoviePage />} />
+      <Route element={<AdminProtectedRoute />}>
+        <Route element={<AdminLayout />}>
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/movies/new" element={<AddMoviePage />} />
         <Route path="/phim/them-moi" element={<AddMoviePage />} />
         <Route path="/movies" element={<MovieManagementPage />} />
         <Route path="/phim" element={<MovieManagementPage />} />
@@ -75,6 +80,13 @@ function App() {
         <Route path="/khuyen-mai" element={<PromotionManagementPage />} />
         <Route path="/promotions/new" element={<AddPromotionPage />} />
         <Route path="/khuyen-mai/them-moi" element={<AddPromotionPage />} />
+        <Route path="/users/new" element={<AddUserPage />} />
+        <Route path="/nguoi-dung/them-moi" element={<AddUserPage />} />
+        <Route path="/users" element={<UserManagementPage />} />
+        <Route path="/nguoi-dung" element={<UserManagementPage />} />
+        <Route path="/reviews" element={<ReviewManagementPage />} />
+        <Route path="/danh-gia" element={<ReviewManagementPage />} />
+        </Route>
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

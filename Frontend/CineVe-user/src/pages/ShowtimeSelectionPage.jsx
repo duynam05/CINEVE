@@ -69,7 +69,7 @@ function ShowtimeSelectionPage() {
   const [selectedFormat, setSelectedFormat] = useState("2D");
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [movie, setMovie] = useState(null);
-  const [cinemaList, setCinemaList] = useState(cinemas);
+  const [cinemaList, setCinemaList] = useState([]);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState({
     area: "Tất cả Hà Nội",
@@ -97,8 +97,7 @@ function ShowtimeSelectionPage() {
           setMovie(movieDetail);
         }
 
-        const mappedCinemas = groupShowtimesByCinema(showtimes);
-        setCinemaList(mappedCinemas.length > 0 ? mappedCinemas : cinemas);
+        setCinemaList(groupShowtimesByCinema(showtimes));
       } catch (error) {
         if (!ignore) {
           setCinemaList(cinemas);
@@ -122,6 +121,11 @@ function ShowtimeSelectionPage() {
     if (!selectedSlot) return "Chưa chọn suất chiếu";
     return `${selectedSlot.start} - ${formatCurrency(selectedSlot.price)}`;
   }, [selectedSlot]);
+
+  const visibleCinemaList = useMemo(
+    () => filterCinemaShowtimes(cinemaList, selectedFormat, filters),
+    [cinemaList, selectedFormat, filters]
+  );
 
   const chooseSlot = (slot) => {
     if (slot.disabled) return;
@@ -160,7 +164,14 @@ function ShowtimeSelectionPage() {
               </button>
             </div>
 
-            {cinemaList.map((cinema) => (
+            {!loading && visibleCinemaList.length === 0 && (
+              <div className="empty-state">
+                <h3>Chưa có lịch chiếu phù hợp</h3>
+                <p>Vui lòng chọn ngày, định dạng hoặc khung giờ khác để xem thêm suất chiếu.</p>
+              </div>
+            )}
+
+            {visibleCinemaList.map((cinema) => (
               <CinemaShowtimeCard
                 cinema={cinema}
                 selectedSlotId={selectedSlot?.id}
@@ -433,7 +444,7 @@ function groupShowtimesByCinema(showtimes = []) {
       cinemaMap.set(cinemaKey, {
         id: cinemaKey,
         name: showtime.cinemaName || "CineVe",
-        address: "Địa chỉ rạp đang cập nhật",
+        address: showtime.cinemaAddress || showtime.address || "Địa chỉ rạp đang cập nhật",
         distance: "CineVe",
         rooms: new Map()
       });
@@ -444,6 +455,7 @@ function groupShowtimesByCinema(showtimes = []) {
     if (!cinema.rooms.has(roomKey)) {
       cinema.rooms.set(roomKey, {
         name: showtime.roomName || "Phòng chiếu",
+        type: showtime.roomType,
         tone: getRoomTone(showtime.roomType),
         slots: []
       });
@@ -453,6 +465,7 @@ function groupShowtimesByCinema(showtimes = []) {
       id: showtime.id,
       start: formatTime(showtime.startTime),
       end: formatTime(showtime.endTime),
+      startTime: showtime.startTime,
       seats: "Còn vé",
       price: showtime.normalSeatPrice || showtime.vipSeatPrice || showtime.coupleSeatPrice || 0,
       disabled: showtime.status !== "OPEN"
@@ -466,6 +479,51 @@ function groupShowtimesByCinema(showtimes = []) {
       slots: room.slots.sort((a, b) => a.start.localeCompare(b.start))
     }))
   }));
+}
+
+function filterCinemaShowtimes(cinemaList, selectedFormat, filters) {
+  const timeFilters = [filters.morning && "morning", filters.afternoon && "afternoon", filters.evening && "evening"].filter(Boolean);
+
+  return cinemaList
+    .map((cinema) => {
+      const rooms = cinema.rooms
+        .filter((room) => roomMatchesFormat(room, selectedFormat))
+        .map((room) => ({
+          ...room,
+          slots: room.slots.filter((slot) => slotMatchesTime(slot, timeFilters))
+        }))
+        .filter((room) => room.slots.length > 0);
+
+      return { ...cinema, rooms };
+    })
+    .filter((cinema) => cinema.rooms.length > 0);
+}
+
+function roomMatchesFormat(room, selectedFormat) {
+  if (!selectedFormat || selectedFormat === "2D") {
+    return room.type === "TWO_D" || room.tone === "standard";
+  }
+
+  if (selectedFormat === "3D") return room.type === "THREE_D";
+  if (selectedFormat === "IMAX") return room.type === "IMAX" || room.tone === "imax";
+  if (selectedFormat === "GOLD CLASS") return room.type === "VIP" || room.tone === "vip";
+
+  return true;
+}
+
+function slotMatchesTime(slot, timeFilters) {
+  if (timeFilters.length === 0) return true;
+
+  const date = slot.startTime ? new Date(slot.startTime) : null;
+  const hour = date && !Number.isNaN(date.getTime()) ? date.getHours() : Number(slot.start?.slice(0, 2));
+
+  if (Number.isNaN(hour)) return true;
+
+  return timeFilters.some((filter) => {
+    if (filter === "morning") return hour >= 8 && hour < 12;
+    if (filter === "afternoon") return hour >= 12 && hour < 18;
+    return hour >= 18 && hour < 24;
+  });
 }
 
 function getRoomTone(roomType) {

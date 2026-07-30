@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { QrCode, Ticket } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
+import { toast } from "react-toastify";
 import { bookingApi } from "../api/clientApi";
 import AppNavbar from "../components/common/AppNavbar.jsx";
 import LoadingState from "../components/common/LoadingState.jsx";
@@ -11,13 +12,36 @@ function TicketDetailPage() {
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [cancelling, setCancelling] = useState(false);
 
-  useEffect(() => {
+  const loadBooking = () => {
+    setLoading(true);
     bookingApi.detail(id)
       .then(setBooking)
       .catch((err) => setError(getErrorMessage(err, "Không tải được chi tiết vé")))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadBooking();
   }, [id]);
+
+  const canCancel = booking && !["CANCELLED", "EXPIRED", "COMPLETED"].includes(booking.status) && booking.ticket?.status !== "CANCELLED";
+
+  const handleCancel = async () => {
+    if (!canCancel || !window.confirm("Bạn chắc chắn muốn hủy vé này?")) return;
+
+    setCancelling(true);
+    try {
+      await bookingApi.cancel(id);
+      toast.success("Hủy vé thành công");
+      loadBooking();
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Không thể hủy vé"));
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   return (
     <div className="booking-success-page">
@@ -46,6 +70,11 @@ function TicketDetailPage() {
               <QrCode size={112} />
               <strong>{booking.ticket?.qrCode || booking.ticket?.code || booking.code}</strong>
             </div>
+            {canCancel && (
+              <button className="primary-action" type="button" onClick={handleCancel} disabled={cancelling}>
+                {cancelling ? "Đang hủy vé..." : "Hủy vé"}
+              </button>
+            )}
             <Link className="primary-action" to="/ve-cua-toi">Quay lại vé của tôi</Link>
           </section>
         </main>

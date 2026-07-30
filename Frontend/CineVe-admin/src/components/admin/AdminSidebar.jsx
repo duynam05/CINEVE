@@ -3,10 +3,12 @@ import {
   Clapperboard,
   Film,
   LayoutDashboard,
+  MessageSquareText,
   Popcorn,
   Tag,
   Ticket,
-  Warehouse
+  Warehouse,
+  Users
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import AdminProfileCard from "./AdminProfileCard.jsx";
@@ -19,7 +21,9 @@ const menuItems = [
   { label: "Lịch chiếu", icon: CalendarDays, to: "/showtimes" },
   { label: "Đặt vé", icon: Ticket, to: "/bookings" },
   { label: "Đồ ăn/Combo", icon: Popcorn, to: "/foods" },
-  { label: "Mã giảm giá", icon: Tag, to: "/promotions" }
+  { label: "Mã giảm giá", icon: Tag, to: "/promotions" },
+  { label: "Người dùng", icon: Users, to: "/users" },
+  { label: "Đánh giá", icon: MessageSquareText, to: "/reviews" }
 ];
 
 function AdminSidebar() {

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ArrowLeft,
   Bell,
@@ -18,10 +18,11 @@ import {
   Utensils,
   Warehouse
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { adminFoodApi } from "../api/adminApi";
 import { getErrorMessage } from "../api/axiosClient";
+import { toAbsoluteImage } from "../api/formatters";
 
 const includedItems = [
   {
@@ -39,7 +40,55 @@ const includedItems = [
 ];
 
 function AddComboPage() {
+  const [searchParams] = useSearchParams();
+  const id = searchParams.get("id");
+  const mode = searchParams.get("mode");
+
   const [isDragging, setIsDragging] = useState(false);
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState("");
+  const [formDataState, setFormDataState] = useState({
+    name: "",
+    description: "",
+    type: "COMBO",
+    price: "",
+    active: true
+  });
+
+  useEffect(() => {
+    if (id && mode === "edit") {
+      adminFoodApi.detail(id)
+        .then(data => {
+          setFormDataState({
+            name: data.name || "",
+            description: data.description || "",
+            type: data.type || "COMBO",
+            price: data.price || "",
+            active: data.active !== false
+          });
+          if (data.imageUrl) setPreview(toAbsoluteImage(data.imageUrl));
+        })
+        .catch(err => toast.error(getErrorMessage(err)));
+    }
+  }, [id, mode]);
+
+  const handleFileChange = (e) => {
+    const selected = e.target.files?.[0];
+    if (selected) {
+      setFile(selected);
+      setPreview(URL.createObjectURL(selected));
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const selected = e.dataTransfer.files?.[0];
+    if (selected) {
+      setFile(selected);
+      setPreview(URL.createObjectURL(selected));
+    }
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -47,15 +96,29 @@ function AddComboPage() {
     const category = formData.get("type") || "COMBO";
 
     try {
-      await adminFoodApi.create({
+      const payload = {
         name: formData.get("name") || "",
         description: formData.get("description") || "",
         type: category,
         price: Number(formData.get("price") || 0),
-        imageUrl: "",
         active: formData.get("active") === "on"
-      });
+      };
+
+      let food;
+      if (mode === "edit" && id) {
+        food = await adminFoodApi.update(id, payload);
+      } else {
+        food = await adminFoodApi.create({ ...payload, imageUrl: "" });
+      }
+      
+      if (file && food && food.id) {
+        const imageForm = new FormData();
+        imageForm.append("file", file);
+        await adminFoodApi.uploadImage(food.id, imageForm);
+      }
+      
       toast.success("Thao tác thành công");
+      setTimeout(() => window.location.href = "/foods", 1500);
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -75,28 +138,28 @@ function AddComboPage() {
             </div>
           </header>
 
-          <form className="add-combo-form" onSubmit={handleSubmit}>
+          <form key={formDataState.name || "new"} className="add-combo-form" onSubmit={handleSubmit}>
             <section className="add-combo-left">
               <article className="add-combo-panel">
                 <label>
                   <span>Tên combo</span>
-                  <input name="name" placeholder="Nhập tên combo (VD: Combo Solo, Combo Couple...)" />
+                  <input name="name" defaultValue={formDataState.name} placeholder="Nhập tên combo (VD: Combo Solo, Combo Couple...)" />
                 </label>
                 <label>
                   <span>Mô tả</span>
-                  <textarea name="description" rows="4" placeholder="Mô tả ngắn gọn về combo này..." />
+                  <textarea name="description" defaultValue={formDataState.description} rows="4" placeholder="Mô tả ngắn gọn về combo này..." />
                 </label>
                 <div className="add-combo-two-cols">
                   <label>
                     <span>Giá bán (VNĐ)</span>
                     <div className="add-combo-price">
-                      <input name="price" type="number" min="0" placeholder="0" />
+                      <input name="price" type="number" min="0" defaultValue={formDataState.price} placeholder="0" />
                       <strong>đ</strong>
                     </div>
                   </label>
                   <label>
                     <span>Danh mục</span>
-                    <select name="type" defaultValue="COMBO">
+                    <select name="type" defaultValue={formDataState.type}>
                       <option value="COMBO">Combo tiết kiệm</option>
                       <option value="COMBO">Combo VIP</option>
                       <option value="SNACK">Đồ ăn lẻ</option>
@@ -145,14 +208,20 @@ function AddComboPage() {
                   }}
                   onDragOver={(event) => event.preventDefault()}
                   onDragLeave={() => setIsDragging(false)}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    setIsDragging(false);
-                  }}
+                  onDrop={handleDrop}
                 >
-                  <CloudUpload size={42} />
-                  <strong>Kéo thả hoặc nhấp để tải lên</strong>
-                  <span>PNG, JPG, tối đa 5MB</span>
+                  <input type="file" id="foodImage" accept="image/*" style={{ display: "none" }} onChange={handleFileChange} />
+                  <label htmlFor="foodImage" style={{ cursor: "pointer", width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                    {preview ? (
+                      <img src={preview} alt="Preview" style={{ maxHeight: "150px", borderRadius: "8px", objectFit: "contain" }} />
+                    ) : (
+                      <>
+                        <CloudUpload size={42} />
+                        <strong>Kéo thả hoặc nhấp để tải lên</strong>
+                        <span>PNG, JPG, tối đa 5MB</span>
+                      </>
+                    )}
+                  </label>
                 </div>
                 <div className="add-combo-tip">
                   <Info size={18} />
@@ -165,7 +234,7 @@ function AddComboPage() {
                   title="Hiển thị trên app"
                   description="Khách hàng có thể nhìn thấy combo này"
                   name="active"
-                  defaultChecked
+                  defaultChecked={formDataState.active}
                 />
                 <ToggleSetting
                   title="Combo VIP"
@@ -175,7 +244,7 @@ function AddComboPage() {
                 <div className="add-combo-actions">
                   <button type="submit">
                     <Check size={18} />
-                    Lưu combo mới
+                    {mode === "edit" ? "Cập nhật" : "Lưu combo mới"}
                   </button>
                   <Link to="/foods">Hủy bỏ</Link>
                 </div>

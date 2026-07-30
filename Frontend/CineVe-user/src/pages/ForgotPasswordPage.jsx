@@ -17,9 +17,9 @@ function ForgotPasswordPage() {
     event.preventDefault();
     setSubmitting(true);
     try {
-      const result = await authApi.forgotPassword({ email });
-      setResetToken(result?.resetToken || "");
-      toast.success("Đã tạo mã đặt lại mật khẩu");
+      await authApi.forgotPassword({ email });
+      setResetToken("");
+      toast.success("Đã gửi mã đặt lại mật khẩu, vui lòng kiểm tra email");
     } catch (err) {
       toast.error(getErrorMessage(err, "Không thể tạo mã đặt lại mật khẩu"));
     } finally {

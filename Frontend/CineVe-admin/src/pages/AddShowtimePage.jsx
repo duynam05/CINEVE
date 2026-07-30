@@ -13,21 +13,35 @@ import {
   Ticket,
   Warehouse
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { adminCinemaApi, adminMovieApi, adminRoomApi, adminShowtimeApi } from "../api/adminApi";
 import { getErrorMessage } from "../api/axiosClient";
-import { asArray } from "../api/formatters";
+import { asArray, formatDateTime } from "../api/formatters";
 
 const adminAvatar =
   "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=240&q=85";
 
 function AddShowtimePage() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const showtimeId = searchParams.get("id");
+  const mode = searchParams.get("mode");
+
   const [movies, setMovies] = useState([]);
   const [cinemas, setCinemas] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [selectedCinemaId, setSelectedCinemaId] = useState("");
   const [selectedMovieId, setSelectedMovieId] = useState("");
+  const [formDataState, setFormDataState] = useState({
+    roomId: "",
+    date: "",
+    startTime: "",
+    endTime: "",
+    normalSeatPrice: "",
+    vipSeatPrice: "",
+    coupleSeatPrice: ""
+  });
 
   useEffect(() => {
     Promise.all([adminMovieApi.list(), adminCinemaApi.list()])
@@ -37,6 +51,29 @@ function AddShowtimePage() {
       })
       .catch((error) => toast.error(getErrorMessage(error)));
   }, []);
+
+  useEffect(() => {
+    if (showtimeId && mode === "edit") {
+      adminShowtimeApi.detail(showtimeId).then((data) => {
+        if (!data) return;
+        setSelectedMovieId(data.movieId);
+        setSelectedCinemaId(data.cinemaId);
+        
+        const startRaw = data.startTime ? data.startTime.split("T") : ["", ""];
+        const endRaw = data.endTime ? data.endTime.split("T") : ["", ""];
+        
+        setFormDataState({
+          roomId: data.roomId,
+          date: startRaw[0] || "",
+          startTime: startRaw[1]?.slice(0, 5) || "",
+          endTime: endRaw[1]?.slice(0, 5) || "",
+          normalSeatPrice: data.normalSeatPrice || "",
+          vipSeatPrice: data.vipSeatPrice || "",
+          coupleSeatPrice: data.coupleSeatPrice || ""
+        });
+      }).catch(err => toast.error(getErrorMessage(err)));
+    }
+  }, [showtimeId, mode]);
 
   useEffect(() => {
     if (!selectedCinemaId) {
@@ -58,8 +95,7 @@ function AddShowtimePage() {
     const start = formData.get("startTime");
     const end = formData.get("endTime");
 
-    try {
-      await adminShowtimeApi.create({
+    const payload = {
         movieId: formData.get("movieId") || "",
         roomId: formData.get("roomId") || "",
         startTime: `${date}T${start}:00`,
@@ -68,8 +104,16 @@ function AddShowtimePage() {
         vipSeatPrice: Number(formData.get("vipSeatPrice") || 0),
         coupleSeatPrice: Number(formData.get("coupleSeatPrice") || formData.get("vipSeatPrice") || 0),
         status: "OPEN"
-      });
+    };
+
+    try {
+      if (mode === "edit" && showtimeId) {
+        await adminShowtimeApi.update(showtimeId, payload);
+      } else {
+        await adminShowtimeApi.create(payload);
+      }
       toast.success("Thao tác thành công");
+      navigate("/showtimes");
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -84,7 +128,7 @@ function AddShowtimePage() {
             <p>Thiết lập thời gian và rạp chiếu cho phim mới trong hệ thống.</p>
           </section>
 
-          <form className="add-showtime-form" onSubmit={handleSubmit}>
+          <form key={formDataState.roomId || "new"} className="add-showtime-form" onSubmit={handleSubmit}>
             <div className="add-showtime-grid">
               <article className="add-showtime-card primary">
                 <label>
@@ -118,7 +162,7 @@ function AddShowtimePage() {
                     ))}
                   </select>
                 </label>
-                <select name="roomId" defaultValue="">
+                <select name="roomId" defaultValue={formDataState.roomId}>
                   <option value="" disabled>Chọn phòng</option>
                   {rooms.map((room) => (
                     <option value={room.id} key={room.id}>{room.name} ({room.type})</option>
@@ -133,51 +177,38 @@ function AddShowtimePage() {
                 <div className="add-showtime-time-grid">
                   <label>
                     <span>Ngày chiếu</span>
-                    <input name="date" type="date" />
+                    <input name="date" type="date" defaultValue={formDataState.date} required />
                   </label>
                   <label>
                     <span>Giờ bắt đầu</span>
-                    <input name="startTime" type="time" />
+                    <input name="startTime" type="time" defaultValue={formDataState.startTime} required />
                   </label>
                   <label>
                     <span>Giờ kết thúc</span>
-                    <input name="endTime" type="time" />
-                  </label>
-                  <label>
-                    <span>Ngôn ngữ & định dạng</span>
-                    <div>
-                      <select defaultValue="sub">
-                        <option value="sub">Phụ đề</option>
-                        <option value="dub">Lồng tiếng</option>
-                      </select>
-                      <select defaultValue="2d">
-                        <option value="2d">2D</option>
-                        <option value="3d">3D</option>
-                        <option value="imax">IMAX</option>
-                      </select>
-                    </div>
+                    <input name="endTime" type="time" defaultValue={formDataState.endTime} required />
                   </label>
                 </div>
               </article>
 
               <article className="add-showtime-card full">
                 <header>
-                  <span><Ticket size={18} /> Bảng giá vé (VNĐ)</span>
+                  <span><Ticket size={18} /> Giá vé (VNĐ)</span>
                 </header>
-                <div className="add-showtime-price-grid">
-                  <PriceInput name="normalSeatPrice" title="Standard" subtitle="Ghế thường" placeholder="85000" />
-                  <PriceInput name="vipSeatPrice" title="VIP / Gold Class" subtitle="Ghế cao cấp" placeholder="150000" highlighted />
+                <div className="add-showtime-time-grid">
+                  <PriceInput name="normalSeatPrice" label="Ghế thường" placeholder="VD: 85000" defaultValue={formDataState.normalSeatPrice} />
+                  <PriceInput name="vipSeatPrice" label="Ghế VIP" placeholder="VD: 105000" defaultValue={formDataState.vipSeatPrice} />
+                  <PriceInput name="coupleSeatPrice" label="Ghế đôi" placeholder="VD: 220000" defaultValue={formDataState.coupleSeatPrice} />
                 </div>
               </article>
             </div>
 
-            <footer className="add-showtime-actions">
-              <Link to="/showtimes">Hủy bỏ</Link>
+            <div className="add-showtime-actions">
               <button type="submit">
-                <CheckCircle2 size={18} />
-                Tạo suất chiếu
+                <Save size={18} />
+                {mode === "edit" ? "Cập nhật suất chiếu" : "Lưu suất chiếu"}
               </button>
-            </footer>
+              <Link to="/showtimes">Hủy bỏ</Link>
+            </div>
           </form>
         </main>
       </div>
@@ -185,17 +216,17 @@ function AddShowtimePage() {
   );
 }
 
-function PriceInput({ name, title, subtitle, placeholder, highlighted = false }) {
+function PriceInput({ name, label, title, subtitle, placeholder, defaultValue, highlighted = false }) {
   return (
     <label className={highlighted ? "price-input highlighted" : "price-input"}>
       <span>
         <i>{highlighted ? <Save size={18} /> : <Ticket size={18} />}</i>
         <span>
-          <strong>{title}</strong>
+          <strong>{label || title}</strong>
           <small>{subtitle}</small>
         </span>
       </span>
-      <input name={name} placeholder={placeholder} type="number" />
+      <input name={name} placeholder={placeholder} type="number" defaultValue={defaultValue} />
     </label>
   );
 }

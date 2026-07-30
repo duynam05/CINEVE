@@ -107,8 +107,8 @@ Cấu hình backend hiện tại:
 * Java: 21
 * Configuration: YAML
 
-==================================================
-3. YÊU CẦU CHUNG KHI CODE
+================================================== 
+3. YÊU CẦU CHUNG KHI CODE 
 =========================
 
 Yêu cầu kiến trúc:

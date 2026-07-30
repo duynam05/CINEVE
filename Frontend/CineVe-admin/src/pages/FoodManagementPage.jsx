@@ -95,7 +95,7 @@ function FoodManagementPage() {
                   <img src={product.image} alt={product.name} />
                   <span>{product.category}</span>
                   <div className="food-card-overlay">
-                    <button type="button">Chỉnh sửa</button>
+                    <Link className="food-edit-link" to={`/foods/new?id=${product.id}&mode=edit`}>Chỉnh sửa</Link>
                   </div>
                 </div>
                 <div className="food-card-body">

@@ -20,8 +20,6 @@ import com.duynam.cinema.dto.request.ResetPasswordRequest;
 import com.duynam.cinema.dto.request.VerifyEmailRequest;
 import com.duynam.cinema.dto.response.ApiResponse;
 import com.duynam.cinema.dto.response.AuthenticationResponse;
-import com.duynam.cinema.dto.response.EmailVerificationResponse;
-import com.duynam.cinema.dto.response.ForgotPasswordResponse;
 import com.duynam.cinema.dto.response.RegisterResponse;
 import com.duynam.cinema.dto.response.UserResponse;
 import com.duynam.cinema.service.AuthenticationService;
@@ -85,18 +83,18 @@ public class AuthenticationController {
     }
 
     @PostMapping("/resend-verification")
-    ApiResponse<EmailVerificationResponse> resendVerification(@RequestBody @Valid ResendEmailVerificationRequest request) {
-        return ApiResponse.<EmailVerificationResponse>builder()
+    ApiResponse<Void> resendVerification(@RequestBody @Valid ResendEmailVerificationRequest request) {
+        userService.resendEmailVerification(request);
+        return ApiResponse.<Void>builder()
                 .message("Đã tạo lại mã xác thực email")
-                .result(userService.resendEmailVerification(request))
                 .build();
     }
 
     @PostMapping("/forgot-password")
-    ApiResponse<ForgotPasswordResponse> forgotPassword(@RequestBody @Valid ForgotPasswordRequest request) {
-        return ApiResponse.<ForgotPasswordResponse>builder()
+    ApiResponse<Void> forgotPassword(@RequestBody @Valid ForgotPasswordRequest request) {
+        userService.forgotPassword(request);
+        return ApiResponse.<Void>builder()
                 .message("Đã tạo reset token")
-                .result(userService.forgotPassword(request))
                 .build();
     }
 

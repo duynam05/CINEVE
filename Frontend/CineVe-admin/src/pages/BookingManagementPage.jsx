@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
-import { adminBookingApi } from "../api/adminApi";
+import { adminBookingApi, adminMovieApi, adminCinemaApi } from "../api/adminApi";
 import { getErrorMessage } from "../api/axiosClient";
 import { asArray, bookingStatusLabel, bookingTone, formatCompactCurrency, formatCurrency, formatDateTime, getInitials } from "../api/formatters";
 
@@ -33,11 +33,32 @@ function BookingManagementPage() {
   const [bookings, setBookings] = useState([]);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const [movies, setMovies] = useState([]);
+  const [cinemas, setCinemas] = useState([]);
+  const [filters, setFilters] = useState({ movieId: "all", cinemaId: "all", date: "", status: "all" });
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+
+  const loadData = async () => {
+    try {
+      const [moviesData, cinemasData] = await Promise.all([
+        adminMovieApi.list(),
+        adminCinemaApi.list()
+      ]);
+      setMovies(asArray(moviesData));
+      setCinemas(asArray(cinemasData));
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  };
 
   const loadBookings = async () => {
     try {
       setLoading(true);
-      const data = await adminBookingApi.list();
+      const params = {};
+      if (filters.status !== "all") params.status = filters.status;
+      // Note: booking API might not support all filters directly, but we can filter client-side or pass what's supported
+      const data = await adminBookingApi.list(params);
       setBookings(asArray(data).map(mapBooking));
     } catch (error) {
       toast.error(getErrorMessage(error));
@@ -48,16 +69,21 @@ function BookingManagementPage() {
   };
 
   useEffect(() => {
+    loadData();
     loadBookings();
-  }, []);
+  }, [filters.status]);
 
   const visibleBookings = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    if (!normalized) return bookings;
-    return bookings.filter((booking) =>
-      [booking.id, booking.customer, booking.movie].join(" ").toLowerCase().includes(normalized)
-    );
-  }, [bookings, query]);
+    setCurrentPage(1);
+    return bookings.filter((booking) => {
+      const matchQuery = [booking.id, booking.customer, booking.movie].join(" ").toLowerCase().includes(normalized);
+      const matchMovie = filters.movieId === "all" || booking.rawMovieId === filters.movieId;
+      const matchCinema = filters.cinemaId === "all" || booking.rawCinemaId === filters.cinemaId;
+      const matchDate = !filters.date || booking.rawShowtimeDate === filters.date;
+      return matchQuery && matchMovie && matchCinema && matchDate;
+    });
+  }, [bookings, query, filters]);
 
   const stats = useMemo(() => {
     const revenue = bookings.reduce((sum, item) => sum + Number(item.rawTotal || 0), 0);
@@ -68,6 +94,11 @@ function BookingManagementPage() {
       cancelled: bookings.filter((item) => item.rawStatus === "CANCELLED").length
     };
   }, [bookings]);
+
+  const totalPages = Math.ceil(visibleBookings.length / pageSize) || 1;
+  const currentBookings = useMemo(() => {
+    return visibleBookings.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  }, [visibleBookings, currentPage]);
 
   const handleAction = async (booking, action) => {
     try {
@@ -100,21 +131,33 @@ function BookingManagementPage() {
             </label>
             <label>
               <span>Rạp chiếu</span>
-              <select defaultValue="all">
+              <select value={filters.cinemaId} onChange={(e) => setFilters({ ...filters, cinemaId: e.target.value })}>
                 <option value="all">Tất cả các rạp</option>
+                {cinemas.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </label>
             <label>
               <span>Phim</span>
-              <select defaultValue="all">
+              <select value={filters.movieId} onChange={(e) => setFilters({ ...filters, movieId: e.target.value })}>
                 <option value="all">Tất cả phim</option>
+                {movies.map(m => <option key={m.id} value={m.id}>{m.title}</option>)}
+              </select>
+            </label>
+            <label>
+              <span>Trạng thái</span>
+              <select value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })}>
+                <option value="all">Tất cả trạng thái</option>
+                <option value="PENDING">Chờ thanh toán</option>
+                <option value="CONFIRMED">Đã xác nhận</option>
+                <option value="COMPLETED">Đã hoàn thành</option>
+                <option value="CANCELLED">Đã hủy</option>
               </select>
             </label>
             <label>
               <span>Ngày chiếu</span>
-              <input type="date" />
+              <input type="date" value={filters.date} onChange={(e) => setFilters({ ...filters, date: e.target.value })} />
             </label>
-            <button type="button">
+            <button type="button" onClick={loadBookings}>
               <Filter size={18} />
               Lọc dữ liệu
             </button>
@@ -142,7 +185,7 @@ function BookingManagementPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {visibleBookings.length ? visibleBookings.map((booking) => (
+                  {currentBookings.length ? currentBookings.map((booking) => (
                     <tr key={booking.rawId}>
                       <td>
                         <strong className="booking-id">{booking.id}</strong>
@@ -194,13 +237,15 @@ function BookingManagementPage() {
               </table>
             </div>
             <footer className="booking-pagination">
-              <p>Hiển thị <strong>1-{visibleBookings.length}</strong> trong số <strong>{bookings.length}</strong> đơn hàng</p>
+              <p>Hiển thị <strong>{currentBookings.length > 0 ? (currentPage - 1) * pageSize + 1 : 0}-{Math.min(currentPage * pageSize, visibleBookings.length)}</strong> trong số <strong>{visibleBookings.length}</strong> đơn hàng</p>
               <div>
-                <button type="button" disabled><ChevronLeft size={16} /></button>
-                <button type="button" className="active">1</button>
-                <button type="button">2</button>
-                <button type="button">3</button>
-                <button type="button"><ChevronRight size={16} /></button>
+                <button type="button" disabled={currentPage === 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))}><ChevronLeft size={16} /></button>
+                {Array.from({ length: totalPages }, (_, i) => (
+                  <button key={i + 1} type="button" className={currentPage === i + 1 ? "active" : ""} onClick={() => setCurrentPage(i + 1)}>
+                    {i + 1}
+                  </button>
+                ))}
+                <button type="button" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}><ChevronRight size={16} /></button>
               </div>
             </footer>
           </section>
@@ -313,10 +358,14 @@ function BookingTopbar() {
 }
 
 function mapBooking(item) {
+  const showtimeDate = item.showtime?.startTime ? item.showtime.startTime.split("T")[0] : "";
   return {
     rawId: item.id,
     rawStatus: item.status,
     rawTotal: item.totalAmount,
+    rawMovieId: item.showtime?.movieId,
+    rawCinemaId: item.showtime?.cinemaId,
+    rawShowtimeDate: showtimeDate,
     id: item.code || item.id || "--",
     time: formatDateTime(item.createdAt),
     customer: item.userFullName || item.userEmail || "--",

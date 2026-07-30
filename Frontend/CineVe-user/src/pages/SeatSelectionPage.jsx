@@ -38,14 +38,25 @@ function SeatSelectionPage() {
   const [selectedSeats, setSelectedSeats] = useState([]);
   const [seatMap, setSeatMap] = useState(null);
   const [showtime, setShowtime] = useState(null);
-  const [comboList, setComboList] = useState(combos);
-  const [comboQuantities, setComboQuantities] = useState({ single: 0, couple: 0 });
+  const [comboList, setComboList] = useState([]);
+  const [comboQuantities, setComboQuantities] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [apiFailed, setApiFailed] = useState(false);
 
   useEffect(() => {
     let ignore = false;
 
     const loadSeatData = async () => {
-      if (!showtimeId) return;
+      if (!showtimeId) {
+        setLoading(false);
+        toast.error("Vui lòng chọn suất chiếu trước khi chọn ghế");
+        navigate("/chon-suat-chieu");
+        return;
+      }
+
+      setLoading(true);
+      setApiFailed(false);
+      setSelectedSeats([]);
 
       try {
         const [seatMapResult, showtimeResult, foodsResult] = await Promise.all([
@@ -60,13 +71,18 @@ function SeatSelectionPage() {
         setShowtime(showtimeResult);
 
         const mappedFoods = mapFoodsToCombos(foodsResult);
-        if (mappedFoods.length > 0) {
-          setComboList(mappedFoods);
-          setComboQuantities(createQuantityMap(mappedFoods));
-        }
+        setComboList(mappedFoods);
+        setComboQuantities(createQuantityMap(mappedFoods));
       } catch (error) {
         if (!ignore) {
+          setApiFailed(true);
+          setComboList(combos);
+          setComboQuantities(createQuantityMap(combos));
           toast.error(getErrorMessage(error, "Không tải được sơ đồ ghế, đang hiển thị dữ liệu mẫu"));
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false);
         }
       }
     };
@@ -76,9 +92,9 @@ function SeatSelectionPage() {
     return () => {
       ignore = true;
     };
-  }, [showtimeId]);
+  }, [navigate, showtimeId]);
 
-  const seatRows = useMemo(() => buildSeatRows(seatMap), [seatMap]);
+  const seatRows = useMemo(() => buildSeatRows(seatMap, apiFailed), [seatMap, apiFailed]);
   const seatByCode = useMemo(() => {
     const entries = seatMap?.seats?.map((seat) => [seat.code, seat]) || [];
     return new Map(entries);
@@ -124,9 +140,16 @@ function SeatSelectionPage() {
   const goToPayment = () => {
     if (selectedSeats.length === 0) return;
 
+    const seatIds = selectedSeats.map((seat) => seatByCode.get(seat)?.id).filter(Boolean);
+
+    if (seatIds.length !== selectedSeats.length) {
+      toast.error("Không tìm thấy mã ghế hợp lệ. Vui lòng tải lại sơ đồ ghế và chọn lại.");
+      return;
+    }
+
     const draft = {
       showtimeId,
-      seatIds: selectedSeats.map((seat) => seatByCode.get(seat)?.id).filter(Boolean),
+      seatIds,
       seatCodes: selectedSeats,
       foods: comboList
         .filter((combo) => (comboQuantities[combo.id] || 0) > 0)
@@ -159,6 +182,8 @@ function SeatSelectionPage() {
 
           <div className="seat-map-wrap">
             <div className="seat-map">
+              {loading && <div className="empty-state">Đang tải sơ đồ ghế...</div>}
+              {!loading && seatRows.length === 0 && <div className="empty-state">Chưa có sơ đồ ghế cho suất chiếu này.</div>}
               {seatRows.map((row) => (
                 <div className="seat-row" key={row.name}>
                   <span className="row-label">{row.name}</span>
@@ -386,8 +411,8 @@ function createSeats(row) {
   return Array.from({ length: 10 }, (_, index) => `${row}${index + 1}`);
 }
 
-function buildSeatRows(seatMap) {
-  if (!seatMap?.seats?.length) {
+function buildSeatRows(seatMap, useFallback = false) {
+  if (!seatMap?.seats?.length && useFallback) {
     return rows.map((row) => ({
       name: row,
       seats: createSeats(row).map((code) => ({
@@ -399,6 +424,8 @@ function buildSeatRows(seatMap) {
       }))
     }));
   }
+
+  if (!seatMap?.seats?.length) return [];
 
   const rowMap = new Map();
 

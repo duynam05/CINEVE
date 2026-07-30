@@ -10,7 +10,7 @@ function VerifyEmailPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const [email, setEmail] = useState(location.state?.email || "");
-  const [otp, setOtp] = useState(location.state?.otp || "");
+  const [otp, setOtp] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const verify = async (event) => {
@@ -29,9 +29,9 @@ function VerifyEmailPage() {
 
   const resend = async () => {
     try {
-      const result = await authApi.resendVerification({ email });
-      setOtp(result?.verificationOtp || "");
-      toast.success("Đã gửi lại mã xác thực");
+      await authApi.resendVerification({ email });
+      setOtp("");
+      toast.success("Đã gửi lại mã xác thực, vui lòng kiểm tra email của bạn");
     } catch (err) {
       toast.error(getErrorMessage(err, "Không thể gửi lại mã xác thực"));
     }
