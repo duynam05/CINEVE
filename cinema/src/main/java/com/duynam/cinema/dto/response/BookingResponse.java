@@ -37,6 +37,7 @@ public class BookingResponse {
     TicketResponse ticket;
     Instant cancelledAt;
     String cancelReason;
+    Instant expiresAt;
     Instant createdAt;
     Instant updatedAt;
 }

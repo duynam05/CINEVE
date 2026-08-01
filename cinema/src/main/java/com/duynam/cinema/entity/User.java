@@ -47,6 +47,9 @@ public class User {
     @Column(length = 20)
     String phone;
 
+    @Column(length = 500)
+    String avatarUrl;
+
     @Enumerated(EnumType.STRING)
     @Builder.Default
     @Column(nullable = false, length = 20)

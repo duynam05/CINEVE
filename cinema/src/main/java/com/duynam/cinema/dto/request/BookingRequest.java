@@ -2,7 +2,6 @@ package com.duynam.cinema.dto.request;
 
 import java.util.List;
 
-import com.duynam.cinema.constant.PaymentMethod;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -30,10 +29,4 @@ public class BookingRequest {
     List<BookingFoodRequest> foods;
 
     String couponCode;
-
-    @NotNull(message = "PAYMENT_METHOD_REQUIRED")
-    PaymentMethod paymentMethod;
-
-    @Builder.Default
-    Boolean paymentSuccess = true;
 }

@@ -111,6 +111,8 @@ export const adminReviewApi = {
 export const adminUserApi = {
   list: (params = {}) => get("/admin/users", { params }),
   detail: (id) => get(`/admin/users/${id}`),
+  create: (payload) => post("/admin/users", payload),
+  uploadAvatar: (id, formData) => post(`/admin/users/${id}/avatar`, formData, { headers: { "Content-Type": "multipart/form-data" } }),
   lock: (id) => put(`/admin/users/${id}/lock`),
   unlock: (id) => put(`/admin/users/${id}/unlock`),
   remove: (id) => del(`/admin/users/${id}`)

@@ -6,25 +6,46 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.multipart.MultipartFile;
+import com.duynam.cinema.dto.request.UserCreateRequest;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
 
+import org.springframework.web.bind.annotation.RestController;
 import com.duynam.cinema.constant.UserStatus;
 import com.duynam.cinema.dto.response.ApiResponse;
 import com.duynam.cinema.dto.response.UserResponse;
-import com.duynam.cinema.service.UserService;
 
+import com.duynam.cinema.service.UserService;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
-import lombok.experimental.FieldDefaults;
 
+import lombok.experimental.FieldDefaults;
 @RestController
 @RequestMapping("/api/admin/users")
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class AdminUserController {
     UserService userService;
+
+    @PostMapping
+    ApiResponse<UserResponse> createUser(@RequestBody @Valid UserCreateRequest request) {
+        return ApiResponse.<UserResponse>builder()
+                .message("Tạo người dùng thành công")
+                .result(userService.createAdminUser(request))
+                .build();
+    }
+
+    @PostMapping("/{id}/avatar")
+    ApiResponse<UserResponse> uploadAvatar(@PathVariable String id, @RequestParam("file") MultipartFile file) {
+        return ApiResponse.<UserResponse>builder()
+                .message("Tải ảnh đại diện thành công")
+                .result(userService.uploadUserAvatar(id, file))
+                .build();
+    }
 
     @GetMapping
     ApiResponse<List<UserResponse>> getUsers(

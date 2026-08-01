@@ -2,7 +2,7 @@ import { Bell, Search, Settings } from "lucide-react";
 
 function getAdminName() {
   try {
-    const rawUser = localStorage.getItem("cineve_user");
+    const rawUser = localStorage.getItem("cineve_admin_user") || localStorage.getItem("cineve_user");
     const user = rawUser ? JSON.parse(rawUser) : null;
     return user?.fullName || "Admin";
   } catch {

@@ -115,6 +115,10 @@ public class SeatService {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new AppException(ErrorCode.ROOM_NOT_FOUND));
 
+        if (seatRepository.existsByRoomIdAndHasBookings(roomId)) {
+            throw new AppException(ErrorCode.ROOM_HAS_BOOKINGS);
+        }
+
         seatRepository.deleteAllByRoomId(room.getId());
 
         List<Seat> seats = new ArrayList<>();

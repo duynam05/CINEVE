@@ -52,6 +52,7 @@ public class BookingMapper {
                 .ticket(ticket == null ? null : toTicketResponse(ticket))
                 .cancelledAt(booking.getCancelledAt())
                 .cancelReason(booking.getCancelReason())
+                .expiresAt(booking.getExpiresAt())
                 .createdAt(booking.getCreatedAt())
                 .updatedAt(booking.getUpdatedAt())
                 .build();

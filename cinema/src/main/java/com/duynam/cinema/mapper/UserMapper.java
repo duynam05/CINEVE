@@ -27,6 +27,7 @@ public class UserMapper {
                 .fullName(user.getFullName())
                 .email(user.getEmail())
                 .phone(user.getPhone())
+                .avatarUrl(user.getAvatarUrl())
                 .status(user.getStatus())
                 .roles(toRoleResponses(user.getRoles()))
                 .build();

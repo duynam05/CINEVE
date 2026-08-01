@@ -2,7 +2,7 @@
 import { Banknote, Bell, CalendarDays, CreditCard, Gift, IceCreamBowl, Landmark, MapPin, Search, Soup, Ticket, WalletCards } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { bookingApi, couponApi } from "../api/clientApi";
+import { bookingApi, couponApi, paymentApi } from "../api/clientApi";
 import AccountNavActions from "../components/common/AccountNavActions.jsx";
 import { formatCurrency, formatDateTime, getErrorMessage } from "../utils/format";
 
@@ -107,19 +107,38 @@ function PaymentPage() {
     setSubmitting(true);
 
     try {
+      // 1. Tạo booking (PENDING)
       const booking = await bookingApi.create({
         showtimeId: draft.showtimeId,
         seatIds: draft.seatIds,
         foods: draft.foods?.map((food) => ({ foodId: food.foodId, quantity: food.quantity })) || [],
-        couponCode: couponResult?.code || null,
-        paymentMethod: mapPaymentMethod(selectedMethod),
-        paymentSuccess: true
+        couponCode: couponResult?.code || null
       });
 
-      sessionStorage.setItem("cineve_latest_booking", JSON.stringify(booking));
-      sessionStorage.removeItem("cineve_booking_draft");
-      toast.success("Đặt vé thành công");
-      navigate(`/dat-ve-thanh-cong?bookingId=${booking.id}`);
+      // 2. Tạo giao dịch thanh toán
+      const payment = await paymentApi.create({
+        bookingId: booking.id,
+        paymentMethod: mapPaymentMethod(selectedMethod)
+      });
+
+      // 3. Giả lập thanh toán thành công (Trong thực tế sẽ redirect sang cổng thanh toán)
+      try {
+        await paymentApi.fakeSuccess(payment.id);
+        toast.success("Đặt vé thành công");
+        sessionStorage.removeItem("cineve_booking_draft");
+        navigate(`/dat-ve-thanh-cong?bookingId=${booking.id}`);
+      } catch (err) {
+        // Nếu API fake không tồn tại (chạy ở Prod), giả lập redirect
+        if (err.response?.status === 404) {
+          toast.info("Giao dịch đang chờ xử lý ở cổng thanh toán...");
+          setTimeout(() => {
+            sessionStorage.removeItem("cineve_booking_draft");
+            navigate("/ve-cua-toi");
+          }, 1500);
+        } else {
+          throw err;
+        }
+      }
     } catch (error) {
       toast.error(getErrorMessage(error, "Thanh toán thất bại"));
     } finally {

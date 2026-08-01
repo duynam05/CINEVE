@@ -23,17 +23,6 @@ function BookingSuccessPage() {
 
   useEffect(() => {
     let ignore = false;
-    const storedBooking = sessionStorage.getItem("cineve_latest_booking");
-
-    if (storedBooking) {
-      try {
-        setLatestBooking(JSON.parse(storedBooking));
-        return undefined;
-      } catch {
-        sessionStorage.removeItem("cineve_latest_booking");
-      }
-    }
-
     const bookingId = searchParams.get("bookingId");
     if (!bookingId) return undefined;
 

@@ -10,6 +10,15 @@ import java.util.UUID;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.Arrays;
 
 import com.duynam.cinema.constant.AuthTokenType;
 import com.duynam.cinema.constant.PredefinedRole;
@@ -19,6 +28,7 @@ import com.duynam.cinema.dto.request.ForgotPasswordRequest;
 import com.duynam.cinema.dto.request.RegisterRequest;
 import com.duynam.cinema.dto.request.ResendEmailVerificationRequest;
 import com.duynam.cinema.dto.request.ResetPasswordRequest;
+import com.duynam.cinema.dto.request.UserCreateRequest;
 import com.duynam.cinema.dto.request.UserUpdateRequest;
 import com.duynam.cinema.dto.request.VerifyEmailRequest;
 import com.duynam.cinema.dto.response.RegisterResponse;
@@ -74,7 +84,7 @@ public class UserService {
         User savedUser = userRepository.save(user);
         AuthToken verificationToken = createAuthToken(savedUser, AuthTokenType.EMAIL_VERIFICATION, EMAIL_VERIFICATION_DURATION_MINUTES);
 
-        log.info("Email verification OTP for {}: {}", email, verificationToken.getOtp());
+        log.debug("Email verification OTP for {}: {}", email, verificationToken.getOtp());
 
         return RegisterResponse.builder()
                 .user(userMapper.toUserResponse(savedUser))
@@ -116,7 +126,7 @@ public class UserService {
         }
 
         AuthToken token = createAuthToken(user, AuthTokenType.EMAIL_VERIFICATION, EMAIL_VERIFICATION_DURATION_MINUTES);
-        log.info("Resend email verification OTP for {}: {}", user.getEmail(), token.getOtp());
+        log.debug("Resend email verification OTP for {}: {}", user.getEmail(), token.getOtp());
     }
 
     public void forgotPassword(ForgotPasswordRequest request) {
@@ -128,7 +138,7 @@ public class UserService {
         }
 
         AuthToken token = createAuthToken(user, AuthTokenType.PASSWORD_RESET, PASSWORD_RESET_DURATION_MINUTES);
-        log.info("Password reset token for {}: {} - OTP: {}", user.getEmail(), token.getToken(), token.getOtp());
+        log.debug("Password reset token for {}: {} - OTP: {}", user.getEmail(), token.getToken(), token.getOtp());
     }
 
     public void resetPassword(ResetPasswordRequest request) {
@@ -173,11 +183,85 @@ public class UserService {
                 .toList();
     }
 
+    public UserResponse createAdminUser(UserCreateRequest request) {
+        String email = request.getEmail().trim().toLowerCase();
+        if (userRepository.existsByEmail(email)) {
+            throw new AppException(ErrorCode.USER_EXISTED);
+        }
+
+        User user = new User();
+        user.setEmail(email);
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setFullName(request.getFullName().trim());
+        user.setPhone(request.getPhone() != null ? request.getPhone().trim() : null);
+        user.setStatus(request.getStatus());
+
+        var roles = new java.util.HashSet<Role>();
+        String roleName = request.getRole().toUpperCase();
+        
+        Role userRole = roleRepository.findById(roleName)
+                .orElseThrow(() -> new AppException(ErrorCode.ROLE_INVALID));
+        
+        roles.add(userRole);
+        user.setRoles(roles);
+
+        return userMapper.toUserResponse(userRepository.save(user));
+    }
+
     public UserResponse getAdminUser(String id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
 
         return userMapper.toUserResponse(user);
+    }
+
+    public UserResponse uploadUserAvatar(String id, MultipartFile file) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+
+        if (file == null || file.isEmpty()) {
+            throw new AppException(ErrorCode.FILE_UPLOAD_FAILED);
+        }
+
+        if (file.getSize() > 2 * 1024 * 1024) { // 2MB limit
+            throw new AppException(ErrorCode.FILE_SIZE_INVALID);
+        }
+
+        String contentType = file.getContentType();
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null) originalFilename = "";
+
+        String extension = "";
+        int dotIndex = originalFilename.lastIndexOf('.');
+        if (dotIndex > 0) {
+            extension = originalFilename.substring(dotIndex).toLowerCase();
+        }
+
+        List<String> allowedExtensions = Arrays.asList(".jpg", ".jpeg", ".png", ".webp");
+        List<String> allowedMimeTypes = Arrays.asList("image/jpeg", "image/png", "image/webp");
+
+        if (!allowedExtensions.contains(extension) || contentType == null || !allowedMimeTypes.contains(contentType)) {
+            throw new AppException(ErrorCode.FILE_TYPE_INVALID);
+        }
+
+        String newFilename = UUID.randomUUID().toString() + extension;
+        Path uploadPath = Paths.get("uploads/avatars");
+
+        try {
+            if (!Files.exists(uploadPath)) {
+                Files.createDirectories(uploadPath);
+            }
+
+            try (InputStream inputStream = file.getInputStream()) {
+                Files.copy(inputStream, uploadPath.resolve(newFilename), StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (IOException e) {
+            log.error("Could not upload avatar", e);
+            throw new AppException(ErrorCode.FILE_UPLOAD_FAILED);
+        }
+
+        user.setAvatarUrl("/uploads/avatars/" + newFilename);
+        return userMapper.toUserResponse(userRepository.save(user));
     }
 
     public UserResponse lockUser(String id) {

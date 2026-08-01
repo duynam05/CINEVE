@@ -64,6 +64,13 @@ export const bookingApi = {
   cancel: (id) => put(`/api/bookings/${id}/cancel`)
 };
 
+export const paymentApi = {
+  create: (payload) => post("/api/payments/create", payload),
+  fakeSuccess: (paymentId) => post(`/api/payments/fake-success?paymentId=${paymentId}`),
+  fakeFailed: (paymentId) => post(`/api/payments/fake-failed?paymentId=${paymentId}`),
+  detail: (id) => get(`/api/payments/${id}`)
+};
+
 export const favoriteApi = {
   list: () => get("/api/favorites"),
   add: (movieId) => post(`/api/favorites/${movieId}`),

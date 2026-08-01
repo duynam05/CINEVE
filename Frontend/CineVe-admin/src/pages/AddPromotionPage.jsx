@@ -106,7 +106,7 @@ function AddPromotionPage() {
                   <label>
                     <span>Usage Limit</span>
                     <div className="add-promotion-input-icon">
-                      <input name="usageLimit" type="number" min="0" placeholder="Số lượng tối đa" />
+                      <input name="usageLimit" type="number" min="1" placeholder="Số lượng tối đa" />
                       <Group size={18} />
                     </div>
                   </label>

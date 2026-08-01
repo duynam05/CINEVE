@@ -108,7 +108,6 @@ public class BookingService {
         Coupon coupon = resolveCoupon(request.getCouponCode(), orderAmount);
         BigDecimal discountAmount = coupon == null ? BigDecimal.ZERO : calculateDiscount(coupon, orderAmount);
         BigDecimal totalAmount = normalizeMoney(orderAmount.subtract(discountAmount).max(BigDecimal.ZERO));
-        boolean paymentSuccess = !Boolean.FALSE.equals(request.getPaymentSuccess());
 
         Booking booking = Booking.builder()
                 .code(generateBookingCode())
@@ -119,26 +118,15 @@ public class BookingService {
                 .foodAmount(foodAmount)
                 .discountAmount(discountAmount)
                 .totalAmount(totalAmount)
-                .status(paymentSuccess ? BookingStatus.CONFIRMED : BookingStatus.EXPIRED)
+                .status(BookingStatus.PENDING)
+                .expiresAt(Instant.now().plus(15, java.time.temporal.ChronoUnit.MINUTES))
                 .build();
         booking = bookingRepository.save(booking);
 
         List<BookingSeat> bookingSeats = saveBookingSeats(booking, showtime, seats);
         List<BookingFood> bookingFoods = saveBookingFoods(booking, foodItems);
-        Payment payment = createPaymentEntity(
-                booking,
-                request.getPaymentMethod(),
-                paymentSuccess ? PaymentStatus.SUCCESS : PaymentStatus.FAILED);
-        Ticket ticket = null;
-        if (paymentSuccess) {
-            payment.setPaidAt(Instant.now());
-            incrementCouponUsage(coupon);
-            ticket = ticketRepository.save(createTicketEntity(booking));
-            createBookingSuccessNotification(booking);
-        }
-        payment = paymentRepository.save(payment);
 
-        return bookingMapper.toBookingResponse(booking, bookingSeats, bookingFoods, payment, ticket);
+        return bookingMapper.toBookingResponse(booking, bookingSeats, bookingFoods, null, null);
     }
 
     public List<BookingResponse> getMyBookings() {
@@ -253,12 +241,31 @@ public class BookingService {
     public PaymentResponse createPayment(PaymentRequest request) {
         Booking booking = bookingRepository.findByIdAndUserEmail(request.getBookingId(), getCurrentEmail())
                 .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
-        if (paymentRepository.findByBookingId(booking.getId()).isPresent()) {
-            throw new AppException(ErrorCode.PAYMENT_ALREADY_EXISTS);
+        
+        if (booking.getStatus() != BookingStatus.PENDING) {
+            throw new AppException(ErrorCode.BOOKING_CANNOT_BE_PAID);
+        }
+        if (booking.getExpiresAt() != null && booking.getExpiresAt().isBefore(Instant.now())) {
+            throw new AppException(ErrorCode.BOOKING_EXPIRED);
         }
 
-        Payment payment = paymentRepository.save(createPaymentEntity(booking, request.getPaymentMethod(), PaymentStatus.PENDING));
-        return bookingMapper.toPaymentResponse(payment);
+        // Return existing pending payment or create new one
+        return paymentRepository.findByBookingId(booking.getId())
+                .map(existingPayment -> {
+                    if (existingPayment.getStatus() != PaymentStatus.PENDING) {
+                        throw new AppException(ErrorCode.PAYMENT_ALREADY_EXISTS);
+                    }
+                    // Update method if changed
+                    if (existingPayment.getMethod() != request.getPaymentMethod()) {
+                        existingPayment.setMethod(request.getPaymentMethod());
+                        return bookingMapper.toPaymentResponse(paymentRepository.save(existingPayment));
+                    }
+                    return bookingMapper.toPaymentResponse(existingPayment);
+                })
+                .orElseGet(() -> {
+                    Payment payment = paymentRepository.save(createPaymentEntity(booking, request.getPaymentMethod(), PaymentStatus.PENDING));
+                    return bookingMapper.toPaymentResponse(payment);
+                });
     }
 
     @Transactional
@@ -273,13 +280,27 @@ public class BookingService {
         if (booking.getStatus() == BookingStatus.CANCELLED) {
             throw new AppException(ErrorCode.BOOKING_ALREADY_CANCELLED);
         }
+        
+        if (booking.getStatus() == BookingStatus.EXPIRED || 
+            (booking.getExpiresAt() != null && booking.getExpiresAt().isBefore(Instant.now()))) {
+            booking.setStatus(BookingStatus.EXPIRED);
+            payment.setStatus(PaymentStatus.FAILED);
+            bookingRepository.save(booking);
+            paymentRepository.save(payment);
+            throw new AppException(ErrorCode.BOOKING_EXPIRED);
+        }
 
         payment.setStatus(PaymentStatus.SUCCESS);
         payment.setPaidAt(Instant.now());
         booking.setStatus(BookingStatus.CONFIRMED);
         ticketRepository.findByBookingId(booking.getId())
                 .orElseGet(() -> ticketRepository.save(createTicketEntity(booking)));
-        incrementCouponUsage(booking.getCoupon());
+        
+        // Ensure coupon usedCount is updated
+        if (booking.getCoupon() != null) {
+            incrementCouponUsage(booking.getCoupon());
+        }
+        
         createBookingSuccessNotification(booking);
 
         bookingRepository.save(booking);
@@ -436,6 +457,13 @@ public class BookingService {
         if (showtime.getStatus() != ShowtimeStatus.OPEN || !showtime.getStartTime().isAfter(LocalDateTime.now())) {
             throw new AppException(ErrorCode.SHOWTIME_NOT_OPEN);
         }
+        if (showtime.getMovie().getStatus() == com.duynam.cinema.constant.MovieStatus.HIDDEN) {
+            throw new AppException(ErrorCode.MOVIE_NOT_FOUND);
+        }
+        if (showtime.getRoom().getStatus() != com.duynam.cinema.constant.RoomStatus.ACTIVE || 
+            showtime.getRoom().getCinema().getStatus() != com.duynam.cinema.constant.CinemaStatus.ACTIVE) {
+            throw new AppException(ErrorCode.ROOM_NOT_FOUND);
+        }
     }
 
     private List<String> normalizeSeatIds(List<String> seatIds) {
@@ -567,8 +595,15 @@ public class BookingService {
             return;
         }
 
-        coupon.setUsedCount(coupon.getUsedCount() + 1);
-        couponRepository.save(coupon);
+        Coupon lockedCoupon = couponRepository.findByIdForUpdate(coupon.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.COUPON_NOT_FOUND));
+
+        if (lockedCoupon.getUsageLimit() != null && lockedCoupon.getUsedCount() >= lockedCoupon.getUsageLimit()) {
+            throw new AppException(ErrorCode.COUPON_USAGE_LIMIT_REACHED);
+        }
+
+        lockedCoupon.setUsedCount(lockedCoupon.getUsedCount() + 1);
+        couponRepository.save(lockedCoupon);
     }
 
     private Payment createPaymentEntity(Booking booking, PaymentMethod method, PaymentStatus status) {

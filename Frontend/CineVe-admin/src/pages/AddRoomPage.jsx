@@ -15,7 +15,7 @@ import {
   Warehouse,
   ZoomIn
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { adminCinemaApi, adminRoomApi } from "../api/adminApi";
 import { getErrorMessage } from "../api/axiosClient";
@@ -27,6 +27,8 @@ const adminAvatar =
 const rows = "ABCDEFGHIJ".split("");
 
 function AddRoomPage() {
+  const [searchParams] = useSearchParams();
+  const cinemaIdFromQuery = searchParams.get("cinemaId");
   const [selectedSeats, setSelectedSeats] = useState(["C5"]);
   const [cinemas, setCinemas] = useState([]);
 
@@ -65,10 +67,16 @@ function AddRoomPage() {
     const columnCount = Math.max(1, Math.ceil(totalSeats / rowCount));
     const screenType = formData.get("type") || "TWO_D";
 
-    try {
-      await adminRoomApi.create({
-        cinemaId: formData.get("cinemaId") || cinemas[0]?.id || "",
-        name: formData.get("name") || "",
+      const selectedCinemaId = formData.get("cinemaId");
+      if (!selectedCinemaId) {
+        toast.error("Vui lòng chọn rạp chiếu");
+        return;
+      }
+
+      try {
+        await adminRoomApi.create({
+          cinemaId: selectedCinemaId,
+          name: formData.get("name") || "",
         rowCount,
         columnCount,
         type: screenType,
@@ -98,7 +106,7 @@ function AddRoomPage() {
                   </label>
                   <label className="span-2">
                     <span>Rạp chiếu</span>
-                    <select name="cinemaId" defaultValue="">
+                    <select name="cinemaId" defaultValue={cinemaIdFromQuery || ""} required>
                       <option value="" disabled>Chọn rạp chiếu</option>
                       {cinemas.map((cinema) => (
                         <option value={cinema.id} key={cinema.id}>{cinema.name}</option>

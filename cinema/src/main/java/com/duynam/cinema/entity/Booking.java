@@ -74,6 +74,9 @@ public class Booking {
 
     @Column(length = 255)
     String cancelReason;
+    
+    @Column
+    Instant expiresAt;
 
     @Column(nullable = false, updatable = false)
     Instant createdAt;

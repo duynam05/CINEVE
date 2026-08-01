@@ -6,7 +6,13 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     const rawUser = localStorage.getItem("cineve_user");
-    return rawUser ? JSON.parse(rawUser) : null;
+    if (!rawUser) return null;
+    try {
+      return JSON.parse(rawUser);
+    } catch {
+      localStorage.removeItem("cineve_user");
+      return null;
+    }
   });
   const [bootstrapping, setBootstrapping] = useState(Boolean(localStorage.getItem("cineve_access_token")));
 

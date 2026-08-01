@@ -65,30 +65,68 @@ const reviews = [
 
 function MovieDetailPage() {
   const { id } = useParams();
-  const [selectedDate, setSelectedDate] = useState(0);
-  const [selectedTime, setSelectedTime] = useState("20:15");
+  
+  // Create next 7 days for filtering
+  const dynamicDates = useMemo(() => {
+    const arr = [];
+    const today = new Date();
+    const weekdays = ["CN", "Th 2", "Th 3", "Th 4", "Th 5", "Th 6", "Th 7"];
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      const isToday = i === 0;
+      arr.push({
+        weekday: isToday ? "H.Nay" : weekdays[d.getDay()],
+        day: d.getDate().toString().padStart(2, "0"),
+        month: months[d.getMonth()],
+        fullDate: d.toISOString().split("T")[0] // YYYY-MM-DD
+      });
+    }
+    return arr;
+  }, []);
+
+  const [selectedDateIndex, setSelectedDateIndex] = useState(0);
+  const [selectedCinemaId, setSelectedCinemaId] = useState("all");
+  const [selectedTime, setSelectedTime] = useState("");
+  
   const [movieData, setMovieData] = useState(movie);
   const [reviewItems, setReviewItems] = useState(reviews);
-  const [showtimeGroups, setShowtimeGroups] = useState(showtimes);
+  const [showtimeGroups, setShowtimeGroups] = useState([]);
   const [activeTrailer, setActiveTrailer] = useState(null);
+  const [cinemasList, setCinemasList] = useState([]);
 
   useEffect(() => {
-    Promise.all([movieApi.detail(id), movieApi.reviews(id), movieApi.showtimes(id)])
-      .then(([movieResult, reviewResult, showtimeResult]) => {
-        setMovieData(mapDetailMovie(movieResult));
-        setReviewItems(reviewResult?.length ? reviewResult.map(mapReview) : reviews);
-        const mappedShowtimes = mapShowtimes(showtimeResult || []);
-        setShowtimeGroups(mappedShowtimes.length ? mappedShowtimes : showtimes);
+    cinemaApi.list().then(data => {
+      setCinemasList(data || []);
+      if (data && data.length > 0) {
+        setSelectedCinemaId(data[0].id); // Pick first cinema by default
+      }
+    }).catch(console.error);
+
+    movieApi.detail(id).then(res => setMovieData(mapDetailMovie(res))).catch(() => setMovieData(movie));
+    movieApi.reviews(id).then(res => setReviewItems(res?.length ? res.map(mapReview) : reviews)).catch(() => setReviewItems(reviews));
+  }, [id]);
+
+  useEffect(() => {
+    if (!cinemasList.length) return;
+    const selectedFullDate = dynamicDates[selectedDateIndex].fullDate;
+    
+    movieApi.showtimes(id, selectedFullDate)
+      .then(res => {
+        // Filter by selected cinema
+        const filtered = (res || []).filter(st => st.cinemaId === selectedCinemaId);
+        const mappedShowtimes = mapShowtimes(filtered);
+        setShowtimeGroups(mappedShowtimes);
         if (mappedShowtimes[0]?.times?.[0]?.id) {
           setSelectedTime(mappedShowtimes[0].times[0].id);
+        } else {
+          setSelectedTime("");
         }
       })
-      .catch(() => {
-        setMovieData(movie);
-        setReviewItems(reviews);
-        setShowtimeGroups(showtimes);
-      });
-  }, [id]);
+      .catch(() => setShowtimeGroups([]));
+  }, [id, selectedDateIndex, selectedCinemaId, cinemasList, dynamicDates]);
 
   const handleOpenTrailer = () => {
     if (!movieData.trailerUrl) {
@@ -181,36 +219,38 @@ function MovieDetailPage() {
               Chọn suất chiếu
             </h2>
 
-            <div className="booking-block">
-              <p>Ngày chiếu</p>
-              <div className="date-list">
-                {dates.map((date, index) => (
-                  <button
-                    className={selectedDate === index ? "active" : ""}
-                    type="button"
-                    key={`${date.weekday}-${date.day}`}
-                    onClick={() => setSelectedDate(index)}
-                  >
-                    <span>{date.weekday}</span>
-                    <strong>{date.day}</strong>
-                    <small>{date.month}</small>
-                  </button>
-                ))}
+              <div className="booking-block">
+                <p>Ngày chiếu</p>
+                <div className="date-list">
+                  {dynamicDates.map((date, index) => (
+                    <button
+                      className={selectedDateIndex === index ? "active" : ""}
+                      type="button"
+                      key={index}
+                      onClick={() => setSelectedDateIndex(index)}
+                    >
+                      <small>{date.weekday}</small>
+                      <strong>{date.day}</strong>
+                      <small>{date.month}</small>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            <div className="booking-block">
-              <p>Chọn rạp</p>
-              <label className="detail-select">
-                <select defaultValue={cinemas[0]}>
-                  {cinemas.map((cinema) => <option key={cinema}>{cinema}</option>)}
-                </select>
-                <ChevronDown size={20} />
-              </label>
-            </div>
+              <div className="booking-block">
+                <p>Chọn rạp</p>
+                <label className="detail-select">
+                  <select value={selectedCinemaId} onChange={(e) => setSelectedCinemaId(e.target.value)}>
+                    {cinemasList.length > 0 ? cinemasList.map((cinema) => (
+                      <option key={cinema.id} value={cinema.id}>{cinema.name}</option>
+                    )) : <option value="all">Đang tải rạp...</option>}
+                  </select>
+                  <ChevronDown size={20} />
+                </label>
+              </div>
 
-            <div className="showtime-blocks">
-              {showtimeGroups.map((group) => (
+              <div className="showtime-blocks">
+                {showtimeGroups.length > 0 ? showtimeGroups.map((group) => (
                 <div className="showtime-group" key={group.format}>
                   <p className={group.tone}>
                     <span />
@@ -228,9 +268,9 @@ function MovieDetailPage() {
                       </button>
                     ))}
                   </div>
-                </div>
-              ))}
-            </div>
+                  </div>
+                )) : <p style={{ color: "var(--muted)", fontStyle: "italic", marginTop: 10 }}>Không có lịch chiếu cho ngày và rạp này.</p>}
+              </div>
 
             <div className="booking-total">
               <div>

@@ -5,7 +5,7 @@ const defaultAdminAvatar =
 
 function getStoredAdmin() {
   try {
-    const rawUser = localStorage.getItem("cineve_user");
+    const rawUser = localStorage.getItem("cineve_admin_user") || localStorage.getItem("cineve_user");
     return rawUser ? JSON.parse(rawUser) : null;
   } catch {
     return null;

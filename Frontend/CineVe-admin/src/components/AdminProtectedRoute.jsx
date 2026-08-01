@@ -35,13 +35,20 @@ export default function AdminProtectedRoute() {
 
   try {
     const base64Url = token.split(".")[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    while (base64.length % 4) {
+      base64 += '=';
+    }
     const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
       return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
     }).join(''));
     
     const payload = JSON.parse(jsonPayload);
     
+    if (!payload.exp) {
+      return renderError("Phiên đăng nhập không hợp lệ", "Token không chứa thời gian hết hạn.", true);
+    }
+
     const isExpired = payload.exp * 1000 < Date.now();
     if (isExpired) {
       return renderError("Phiên đăng nhập đã hết hạn", "Token của bạn đã hết hạn, vui lòng đăng nhập lại.", true);

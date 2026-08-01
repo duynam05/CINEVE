@@ -25,4 +25,10 @@ public interface SeatRepository extends JpaRepository<Seat, String> {
     List<Seat> findAllByIdInForUpdate(@Param("ids") List<String> ids);
 
     void deleteAllByRoomId(String roomId);
+
+    @Query("""
+            select count(bs) > 0 from BookingSeat bs 
+            where bs.seat.room.id = :roomId
+            """)
+    boolean existsByRoomIdAndHasBookings(@Param("roomId") String roomId);
 }

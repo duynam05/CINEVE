@@ -17,10 +17,15 @@ public interface BookingSeatRepository extends JpaRepository<BookingSeat, String
     @Query("""
             select bs from BookingSeat bs
             where bs.showtime.id = :showtimeId
-              and bs.booking.status in (
-                    com.duynam.cinema.constant.BookingStatus.PENDING,
-                    com.duynam.cinema.constant.BookingStatus.CONFIRMED,
-                    com.duynam.cinema.constant.BookingStatus.COMPLETED
+              and (
+                  bs.booking.status in (
+                        com.duynam.cinema.constant.BookingStatus.CONFIRMED,
+                        com.duynam.cinema.constant.BookingStatus.COMPLETED
+                  )
+                  or (
+                        bs.booking.status = com.duynam.cinema.constant.BookingStatus.PENDING
+                        and (bs.booking.expiresAt is null or bs.booking.expiresAt > CURRENT_TIMESTAMP)
+                  )
               )
               and bs.seat.id in :seatIds
             """)
@@ -31,10 +36,15 @@ public interface BookingSeatRepository extends JpaRepository<BookingSeat, String
     @Query("""
             select bs.seat.id from BookingSeat bs
             where bs.showtime.id = :showtimeId
-              and bs.booking.status in (
-                    com.duynam.cinema.constant.BookingStatus.PENDING,
-                    com.duynam.cinema.constant.BookingStatus.CONFIRMED,
-                    com.duynam.cinema.constant.BookingStatus.COMPLETED
+              and (
+                  bs.booking.status in (
+                        com.duynam.cinema.constant.BookingStatus.CONFIRMED,
+                        com.duynam.cinema.constant.BookingStatus.COMPLETED
+                  )
+                  or (
+                        bs.booking.status = com.duynam.cinema.constant.BookingStatus.PENDING
+                        and (bs.booking.expiresAt is null or bs.booking.expiresAt > CURRENT_TIMESTAMP)
+                  )
               )
             """)
     List<String> findActiveBookedSeatIdsByShowtimeId(@Param("showtimeId") String showtimeId);
