@@ -27,9 +27,9 @@ export const movieApi = {
   nowShowing: () => get("/api/movies/now-showing"),
   comingSoon: () => get("/api/movies/coming-soon"),
   detail: (id) => get(`/api/movies/${id}`),
-  showtimes: (id, date) => get(`/api/movies/${id}/showtimes`, { params: date ? { date } : {} }),
+  trailer: (id) => get(`/api/movies/${id}/trailer`),
   reviews: (id) => get(`/api/movies/${id}/reviews`),
-  createReview: (id, payload) => post(`/api/movies/${id}/reviews`, payload)
+  showtimes: (id, date) => get(`/api/movies/${id}/showtimes`, { params: { date } })
 };
 
 export const genreApi = {

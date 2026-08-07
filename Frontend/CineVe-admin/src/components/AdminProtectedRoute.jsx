@@ -2,7 +2,10 @@ import React from "react";
 import { Outlet } from "react-router-dom";
 
 export default function AdminProtectedRoute() {
-  const token = localStorage.getItem("cineve_admin_access_token") || localStorage.getItem("cineve_access_token");
+  const params = new URLSearchParams(window.location.search);
+  const tokenFromUrl = params.get("token");
+  
+  const token = tokenFromUrl || localStorage.getItem("cineve_admin_access_token") || localStorage.getItem("cineve_access_token");
   
   const handleLogout = () => {
     localStorage.removeItem("cineve_admin_access_token");

@@ -59,7 +59,7 @@ export default function AddUserPage() {
     <div className="flex-1 p-6 md:p-10 max-w-6xl mx-auto w-full text-body-md font-body-md text-on-background">
       {/* Breadcrumbs */}
       <nav className="flex items-center gap-2 text-on-surface-variant text-sm mb-8">
-        <Link className="hover:text-primary" to="/dashboard">Dashboard</Link>
+        <Link className="hover:text-primary" to="/dashboard">Tổng quan</Link>
         <span className="material-symbols-outlined text-[16px]">chevron_right</span>
         <Link className="hover:text-primary" to="/users">Người dùng</Link>
         <span className="material-symbols-outlined text-[16px]">chevron_right</span>
@@ -110,7 +110,7 @@ export default function AddUserPage() {
                   <div className="relative">
                     <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-xl">lock</span>
                     <input name="password" className="w-full bg-surface border-outline-variant/30 rounded-xl py-3.5 pl-12 pr-12 text-on-surface focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all" placeholder="••••••••" type={showPassword ? "text" : "password"} required />
-                    <button className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-primary" type="button" onClick={() => setShowPassword(!showPassword)}>
+                    <button className="absolute right-4 top-1/2 -translate-y-1/2 border-0 bg-transparent p-0 text-on-surface-variant hover:text-primary" type="button" onClick={() => setShowPassword(!showPassword)}>
                       <span className="material-symbols-outlined text-xl">{showPassword ? "visibility_off" : "visibility"}</span>
                     </button>
                   </div>
@@ -126,7 +126,7 @@ export default function AddUserPage() {
                     <label className="block text-sm font-semibold text-on-surface-variant ml-1">Vai trò</label>
                     <div className="relative">
                       <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-xl">badge</span>
-                      <select name="role" className="w-full bg-surface border-outline-variant/30 rounded-xl py-3.5 pl-12 pr-10 text-on-surface focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all appearance-none" defaultValue="USER">
+                      <select name="role" className="w-full bg-surface border-outline-variant/30 rounded-xl py-3.5 pl-12 pr-10 text-on-surface focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all appearance-none" style={{ appearance: "none", WebkitAppearance: "none", backgroundImage: "none" }} defaultValue="USER">
                         <option value="USER">Khách hàng</option>
                         <option value="ADMIN">Quản trị viên</option>
                       </select>
@@ -137,7 +137,7 @@ export default function AddUserPage() {
                     <label className="block text-sm font-semibold text-on-surface-variant ml-1">Trạng thái</label>
                     <div className="relative">
                       <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-xl">check_circle</span>
-                      <select name="status" className="w-full bg-surface border-outline-variant/30 rounded-xl py-3.5 pl-12 pr-10 text-on-surface focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all appearance-none" defaultValue="ACTIVE">
+                      <select name="status" className="w-full bg-surface border-outline-variant/30 rounded-xl py-3.5 pl-12 pr-10 text-on-surface focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all appearance-none" style={{ appearance: "none", WebkitAppearance: "none", backgroundImage: "none" }} defaultValue="ACTIVE">
                         <option value="ACTIVE">Hoạt động</option>
                         <option value="DISABLED">Tạm khóa</option>
                       </select>

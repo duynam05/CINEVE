@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Edit, Eye, Lock, LockOpen, Plus, Search, TrendingDown, TrendingUp, UserMinus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, ShieldCheck, ShieldOff, TrendingDown, TrendingUp, UserX } from "lucide-react";
 import { adminUserApi } from "../api/adminApi";
 import { toast } from "react-toastify";
 import { getErrorMessage } from "../api/axiosClient";
@@ -9,7 +9,6 @@ import { asArray, getInitials } from "../api/formatters";
 export default function UserManagementPage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [roleFilter, setRoleFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
@@ -21,7 +20,6 @@ export default function UserManagementPage() {
       const params = {};
       if (statusFilter !== "all") params.status = statusFilter;
       if (roleFilter !== "all") params.role = roleFilter;
-      if (query.trim()) params.keyword = query.trim();
 
       const data = await adminUserApi.list(params);
       setUsers(asArray(data));
@@ -43,13 +41,9 @@ export default function UserManagementPage() {
   // and status/role, but wait, the backend supports `keyword`, `status`, `role`.
   // Since we fetch on status/role changes, we can also filter locally to be fast.
   const visibleUsers = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
     setCurrentPage(1);
-    return users.filter(user => {
-      const matchQuery = [user.fullName, user.email, user.phone].join(" ").toLowerCase().includes(normalized);
-      return matchQuery;
-    });
-  }, [users, query]);
+    return users;
+  }, [users]);
 
   const stats = useMemo(() => {
     return {
@@ -135,15 +129,10 @@ export default function UserManagementPage() {
           </section>
 
           {/* Table & Filters */}
-          <section className="booking-table-card">
-            <div className="booking-filter-grid">
-              <label className="wide">
-                <div>
-                  <Search size={18} />
-                  <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Tên khách, email..." />
-                </div>
-              </label>
+          <section className="booking-table-card user-table-card">
+            <div className="booking-filter-grid user-filter-grid">
               <label>
+                <span>Trạng thái</span>
                 <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
                   <option value="all">Tất cả trạng thái</option>
                   <option value="ACTIVE">Hoạt động</option>
@@ -152,6 +141,7 @@ export default function UserManagementPage() {
                 </select>
               </label>
               <label>
+                <span>Vai trò</span>
                 <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}>
                   <option value="all">Tất cả vai trò</option>
                   <option value="ADMIN">Admin</option>
@@ -198,13 +188,13 @@ export default function UserManagementPage() {
                           </div>
                         </td>
                         <td>
-                          <div className="booking-actions">
+                          <div className="booking-actions user-actions">
                             {user.status === "DISABLED" ? (
-                              <button type="button" aria-label="Mở khóa" onClick={() => handleUnlock(user)}><LockOpen size={17} /></button>
+                              <button type="button" aria-label="Mở khóa" onClick={() => handleUnlock(user)}><ShieldCheck size={17} /></button>
                             ) : (
-                              <button type="button" aria-label="Khóa" onClick={() => handleLock(user)}><Lock size={17} /></button>
+                              <button type="button" aria-label="Khóa" onClick={() => handleLock(user)}><ShieldOff size={17} /></button>
                             )}
-                            <button className="refund" type="button" aria-label="Xóa" onClick={() => handleDisable(user)}><UserMinus size={17} /></button>
+                            <button className="refund" type="button" aria-label="Vô hiệu hóa" onClick={() => handleDisable(user)}><UserX size={17} /></button>
                           </div>
                         </td>
                       </tr>

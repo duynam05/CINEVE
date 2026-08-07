@@ -118,12 +118,6 @@ function FoodManagementPage() {
               </article>
             )) : <p>Chưa có dữ liệu</p>}
 
-            <Link className="food-add-card" to="/foods/new">
-              <span>
-                <Plus size={34} />
-              </span>
-              Thêm sản phẩm mới
-            </Link>
           </section>
         </main>
       </div>

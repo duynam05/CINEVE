@@ -3,7 +3,7 @@ import { Bell, ChevronDown, Globe2, Mail, Play, Search, Star, Ticket } from "luc
 import { Link } from "react-router-dom";
 import { useEffect } from "react";
 import { useParams } from "react-router-dom";
-import { movieApi } from "../api/clientApi";
+import { movieApi, cinemaApi } from "../api/clientApi";
 import AccountNavActions from "../components/common/AccountNavActions.jsx";
 import TrailerModal from "../components/common/TrailerModal.jsx";
 import { assetUrl, formatTime } from "../utils/format";
@@ -27,24 +27,7 @@ const movie = {
   cast: "Timothée Chalamet, Zendaya, Rebecca Ferguson, Josh Brolin, Austin Butler, Florence Pugh"
 };
 
-const dates = [
-  { weekday: "Th 3", day: "12", month: "Mar" },
-  { weekday: "Th 4", day: "13", month: "Mar" },
-  { weekday: "Th 5", day: "14", month: "Mar" },
-  { weekday: "Th 6", day: "15", month: "Mar" }
-];
 
-const cinemas = [
-  "CineVe - Vincom Center Quận 1",
-  "CineVe - Landmark 81",
-  "CineVe - Crescent Mall",
-  "CineVe - Gigamall Thủ Đức"
-];
-
-const showtimes = [
-  { format: "2D Phụ đề", tone: "standard", times: ["19:00", "21:30", "22:45"] },
-  { format: "IMAX Sapphire", tone: "premium", times: ["20:15", "23:00"] }
-];
 
 const reviews = [
   {
@@ -273,10 +256,14 @@ function MovieDetailPage() {
               </div>
 
             <div className="booking-total">
-              <div>
-                <p>Giá vé từ</p>
-                <strong>120.000đ</strong>
-              </div>
+                <div>
+                  <p>Giá vé từ</p>
+                  <strong>
+                    {showtimeGroups.flatMap(g => g.times).find(t => (t.id || t) === selectedTime)?.price 
+                      ? formatCurrency(showtimeGroups.flatMap(g => g.times).find(t => (t.id || t) === selectedTime).price)
+                      : "---"}
+                  </strong>
+                </div>
               <div>
                 <p>Phí dịch vụ</p>
                 <span>Miễn phí</span>
@@ -375,17 +362,17 @@ function mapReview(item) {
   };
 }
 
-function mapShowtimes(items) {
-  const groups = items.reduce((acc, item) => {
-    const format = item.roomType || "2D";
-    if (!acc[format]) {
-      acc[format] = { format, tone: format === "IMAX" || format === "VIP" ? "premium" : "standard", times: [] };
-    }
-    acc[format].times.push({ id: item.id, label: formatTime(item.startTime) });
-    return acc;
-  }, {});
+  function mapShowtimes(items) {
+    const groups = items.reduce((acc, item) => {
+      const format = item.roomType || "2D";
+      if (!acc[format]) {
+        acc[format] = { format, tone: format === "IMAX" || format === "VIP" ? "premium" : "standard", times: [] };
+      }
+      acc[format].times.push({ id: item.id, label: formatTime(item.startTime), price: item.normalSeatPrice });
+      return acc;
+    }, {});
 
-  return Object.values(groups);
-}
+    return Object.values(groups);
+  }
 
 export default MovieDetailPage;

@@ -125,7 +125,7 @@ function DashboardPage() {
         <main className="dashboard-main">
           <header className="dashboard-heading">
             <div>
-              <h1>Dashboard</h1>
+              <h1>Tổng quan</h1>
               <p>{loading ? "Đang tải dữ liệu..." : "Tổng quan hoạt động của hệ thống"}</p>
             </div>
           </header>
@@ -176,7 +176,7 @@ function AdminSidebar() {
       <div className="admin-profile-card">
         <img src={adminAvatar} alt="Admin" />
         <div>
-          <strong>Admin Name</strong>
+          <strong>Quản trị viên</strong>
           <span>CineVe Admin</span>
         </div>
       </div>

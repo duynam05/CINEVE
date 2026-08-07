@@ -15,7 +15,6 @@ import {
   MoreVertical,
   Popcorn,
   Printer,
-  Search,
   Settings,
   Ticket,
   TrendingDown,
@@ -31,7 +30,6 @@ import { asArray, bookingStatusLabel, bookingTone, formatCompactCurrency, format
 
 function BookingManagementPage() {
   const [bookings, setBookings] = useState([]);
-  const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [movies, setMovies] = useState([]);
   const [cinemas, setCinemas] = useState([]);
@@ -74,16 +72,14 @@ function BookingManagementPage() {
   }, [filters.status]);
 
   const visibleBookings = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
     setCurrentPage(1);
     return bookings.filter((booking) => {
-      const matchQuery = [booking.id, booking.customer, booking.movie].join(" ").toLowerCase().includes(normalized);
       const matchMovie = filters.movieId === "all" || booking.rawMovieId === filters.movieId;
       const matchCinema = filters.cinemaId === "all" || booking.rawCinemaId === filters.cinemaId;
       const matchDate = !filters.date || booking.rawShowtimeDate === filters.date;
-      return matchQuery && matchMovie && matchCinema && matchDate;
+      return matchMovie && matchCinema && matchDate;
     });
-  }, [bookings, query, filters]);
+  }, [bookings, filters]);
 
   const stats = useMemo(() => {
     const revenue = bookings.reduce((sum, item) => sum + Number(item.rawTotal || 0), 0);
@@ -122,13 +118,6 @@ function BookingManagementPage() {
           </section>
 
           <section className="booking-filter-grid">
-            <label className="wide">
-              <span>Tìm kiếm đơn hàng</span>
-              <div>
-                <Search size={18} />
-                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Mã đơn hàng, tên khách..." />
-              </div>
-            </label>
             <label>
               <span>Rạp chiếu</span>
               <select value={filters.cinemaId} onChange={(e) => setFilters({ ...filters, cinemaId: e.target.value })}>

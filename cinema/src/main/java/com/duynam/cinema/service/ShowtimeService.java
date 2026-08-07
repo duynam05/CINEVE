@@ -74,6 +74,11 @@ public class ShowtimeService {
         if (showtime.getStatus() == ShowtimeStatus.CANCELLED) {
             throw new AppException(ErrorCode.SHOWTIME_NOT_FOUND);
         }
+        if (showtime.getMovie().getStatus() == com.duynam.cinema.constant.MovieStatus.HIDDEN ||
+            showtime.getRoom().getStatus() != com.duynam.cinema.constant.RoomStatus.ACTIVE ||
+            showtime.getRoom().getCinema().getStatus() != com.duynam.cinema.constant.CinemaStatus.ACTIVE) {
+            throw new AppException(ErrorCode.SHOWTIME_NOT_FOUND);
+        }
 
         return showtimeMapper.toShowtimeResponse(showtime);
     }
@@ -91,6 +96,11 @@ public class ShowtimeService {
         Showtime showtime = showtimeRepository.findById(showtimeId)
                 .orElseThrow(() -> new AppException(ErrorCode.SHOWTIME_NOT_FOUND));
         if (showtime.getStatus() == ShowtimeStatus.CANCELLED) {
+            throw new AppException(ErrorCode.SHOWTIME_NOT_FOUND);
+        }
+        if (showtime.getMovie().getStatus() == com.duynam.cinema.constant.MovieStatus.HIDDEN ||
+            showtime.getRoom().getStatus() != com.duynam.cinema.constant.RoomStatus.ACTIVE ||
+            showtime.getRoom().getCinema().getStatus() != com.duynam.cinema.constant.CinemaStatus.ACTIVE) {
             throw new AppException(ErrorCode.SHOWTIME_NOT_FOUND);
         }
 

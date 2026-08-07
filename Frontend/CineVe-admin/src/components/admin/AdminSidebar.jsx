@@ -14,7 +14,7 @@ import { NavLink } from "react-router-dom";
 import AdminProfileCard from "./AdminProfileCard.jsx";
 
 const menuItems = [
-  { label: "Dashboard", icon: LayoutDashboard, to: "/dashboard" },
+  { label: "Tổng quan", icon: LayoutDashboard, to: "/dashboard" },
   { label: "Phim", icon: Film, to: "/movies" },
   { label: "Rạp", icon: Warehouse, to: "/cinemas" },
   { label: "Phòng chiếu", icon: Clapperboard, to: "/rooms" },

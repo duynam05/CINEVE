@@ -7,13 +7,11 @@ import {
   Grid3X3,
   Info,
   LayoutDashboard,
-  Maximize,
   Popcorn,
   Save,
   Settings,
   Ticket,
-  Warehouse,
-  ZoomIn
+  Warehouse
 } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -156,17 +154,13 @@ function AddRoomPage() {
                     <Grid3X3 size={22} />
                     Sơ đồ chỗ ngồi
                   </h2>
-                  <p>Chế độ xem trước (Preview Layout)</p>
-                </div>
-                <div>
-                  <button type="button" aria-label="Phóng to"><ZoomIn size={19} /></button>
-                  <button type="button" aria-label="Vừa khung"><Maximize size={19} /></button>
+                  <p>Chế độ xem trước sơ đồ</p>
                 </div>
               </header>
 
               <div className="add-room-screen">
                 <div />
-                <span>Màn hình / Screen</span>
+                <span>Màn hình</span>
               </div>
 
               <div className="add-room-seat-scroll">
@@ -214,7 +208,7 @@ function AddRoomSidebar() {
     <aside className="admin-sidebar">
       <div className="admin-brand">
         <h2>CineVe</h2>
-        <p>Admin Console</p>
+        <p>Bảng quản trị</p>
       </div>
       <nav className="admin-nav movie-admin-nav">
         {items.map((item) => (
@@ -228,7 +222,7 @@ function AddRoomSidebar() {
         <img src={adminAvatar} alt="Admin" />
         <div>
           <strong>Admin Cine</strong>
-          <span>System Manager</span>
+          <span>Quản lý hệ thống</span>
         </div>
       </div>
     </aside>

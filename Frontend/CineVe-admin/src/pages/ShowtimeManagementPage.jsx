@@ -231,8 +231,8 @@ function ShowtimeSidebar() {
       <div className="admin-profile-card">
         <span className="admin-letter-avatar"><UserRound size={20} /></span>
         <div>
-          <strong>Admin Profile</strong>
-          <span>Administrator</span>
+          <strong>Quản trị viên</strong>
+          <span>Người quản trị</span>
         </div>
       </div>
     </aside>

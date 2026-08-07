@@ -38,6 +38,9 @@ public interface ShowtimeRepository extends JpaRepository<Showtime, String> {
     @Query("""
             select s from Showtime s
             where s.status <> :status
+              and s.movie.status <> com.duynam.cinema.constant.MovieStatus.HIDDEN
+              and s.room.status = com.duynam.cinema.constant.RoomStatus.ACTIVE
+              and s.room.cinema.status = com.duynam.cinema.constant.CinemaStatus.ACTIVE
               and (:movieId is null or s.movie.id = :movieId)
               and (:cinemaId is null or s.room.cinema.id = :cinemaId)
               and (:roomId is null or s.room.id = :roomId)

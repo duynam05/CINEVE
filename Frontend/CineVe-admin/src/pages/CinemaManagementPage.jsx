@@ -160,7 +160,7 @@ function CinemaSidebar() {
       <div className="admin-profile-card">
         <img src={adminAvatar} alt="Admin" />
         <div>
-          <strong>Admin Profile</strong>
+          <strong>Quản trị viên</strong>
           <span>Quản trị viên</span>
         </div>
       </div>

@@ -41,6 +41,8 @@ function RoomManagementPage() {
   const [selectedType, setSelectedType] = useState("standard");
   const [selectedSeats, setSelectedSeats] = useState([]);
   const [pendingSeatTypes, setPendingSeatTypes] = useState({});
+  const [seatHistory, setSeatHistory] = useState([]);
+  const [seatRedoStack, setSeatRedoStack] = useState([]);
   const [seats, setSeats] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -111,6 +113,8 @@ function RoomManagementPage() {
     loadSeats(activeRoomId);
     setSelectedSeats([]);
     setPendingSeatTypes({});
+    setSeatHistory([]);
+    setSeatRedoStack([]);
   }, [activeRoomId]);
 
   const activeRoom = rooms.find((room) => room.id === activeRoomId) ?? rooms[0] ?? {
@@ -127,6 +131,9 @@ function RoomManagementPage() {
   }, [seats]);
 
   const toggleSeat = (seatId) => {
+    setSeatHistory((current) => [...current, { selectedSeats, pendingSeatTypes }]);
+    setSeatRedoStack([]);
+
     setSelectedSeats((current) => {
       const isSelected = current.includes(seatId);
       const currentPendingType = pendingSeatTypes[seatId];
@@ -142,6 +149,30 @@ function RoomManagementPage() {
 
       setPendingSeatTypes((pending) => ({ ...pending, [seatId]: selectedType }));
       return isSelected ? current : [...current, seatId];
+    });
+  };
+
+  const handleUndoSeats = () => {
+    setSeatHistory((current) => {
+      if (!current.length) return current;
+
+      const previous = current[current.length - 1];
+      setSeatRedoStack((redo) => [...redo, { selectedSeats, pendingSeatTypes }]);
+      setSelectedSeats(previous.selectedSeats);
+      setPendingSeatTypes(previous.pendingSeatTypes);
+      return current.slice(0, -1);
+    });
+  };
+
+  const handleRedoSeats = () => {
+    setSeatRedoStack((current) => {
+      if (!current.length) return current;
+
+      const next = current[current.length - 1];
+      setSeatHistory((history) => [...history, { selectedSeats, pendingSeatTypes }]);
+      setSelectedSeats(next.selectedSeats);
+      setPendingSeatTypes(next.pendingSeatTypes);
+      return current.slice(0, -1);
     });
   };
 
@@ -172,6 +203,8 @@ function RoomManagementPage() {
       loadSeats(activeRoomId);
       setSelectedSeats([]);
       setPendingSeatTypes({});
+      setSeatHistory([]);
+      setSeatRedoStack([]);
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -187,6 +220,8 @@ function RoomManagementPage() {
       toast.error(getErrorMessage(error));
     }
   };
+
+  const hasActiveRoom = Boolean(activeRoomId);
 
   return (
     <div className="admin-shell">
@@ -220,7 +255,7 @@ function RoomManagementPage() {
               </label>
               <div className="room-list">
                 {!selectedCinemaId ? (
-                  <p>Vui lòng chọn rạp chiếu</p>
+                  <p className="room-empty-message">Vui lòng chọn rạp chiếu</p>
                 ) : rooms.length ? rooms.map((room) => (
                   <button
                     className={room.id === activeRoomId ? "active" : ""}
@@ -236,7 +271,7 @@ function RoomManagementPage() {
                       Hàng: {room.rows} | Cột: {room.cols} | Tổng: {room.rows * room.cols} ghế
                     </p>
                   </button>
-                )) : <p>Chưa có dữ liệu</p>}
+                )) : <p className="room-empty-message">Chưa có phòng chiếu</p>}
               </div>
             </aside>
 
@@ -247,9 +282,9 @@ function RoomManagementPage() {
                   <p>Chọn các ghế để thay đổi thuộc tính</p>
                 </div>
                 <div>
-                  <button type="button" aria-label="Hoàn tác"><Undo2 size={18} /></button>
-                  <button type="button" aria-label="Làm lại"><Redo2 size={18} /></button>
-                  <button type="button" className="save-seat-map" onClick={handleSaveSeats}><Save size={16} /> Lưu sơ đồ</button>
+                  <button type="button" aria-label="Hoàn tác" onClick={handleUndoSeats} disabled={!seatHistory.length}><Undo2 size={18} /></button>
+                  <button type="button" aria-label="Làm lại" onClick={handleRedoSeats} disabled={!seatRedoStack.length}><Redo2 size={18} /></button>
+                  <button type="button" className="save-seat-map" onClick={handleSaveSeats} disabled={!hasActiveRoom}><Save size={16} /> Lưu sơ đồ</button>
                 </div>
               </header>
 
@@ -270,10 +305,12 @@ function RoomManagementPage() {
               <div className="seat-preview">
                 <div className="screen-wrap">
                   <div className="screen-curve-admin" />
-                  <span>Màn hình / Screen</span>
+                  <span>Màn hình</span>
                 </div>
                 <div className="admin-seat-grid">
-                  {visibleSeats.length ? visibleSeats.map((seat) => {
+                  {!hasActiveRoom ? (
+                    <div className="seat-empty-state">Chọn rạp và phòng chiếu để thiết lập sơ đồ ghế</div>
+                  ) : visibleSeats.length ? visibleSeats.map((seat) => {
                     const displayType = pendingSeatTypes[seat.id] || seat.type;
 
                     return (
@@ -293,10 +330,10 @@ function RoomManagementPage() {
                   )}
                 </div>
                 <div className="seat-legend-admin">
-                  <span><i className="standard" />Standard</span>
+                  <span><i className="standard" />Ghế thường</span>
                   <span><i className="vip" />VIP</span>
-                  <span><i className="couple" />Sweetbox</span>
-                  <span><i className="maintenance" />Broken</span>
+                  <span><i className="couple" />Ghế đôi</span>
+                  <span><i className="maintenance" />Bảo trì</span>
                 </div>
               </div>
             </section>

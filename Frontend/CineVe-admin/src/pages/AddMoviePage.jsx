@@ -254,7 +254,7 @@ function AddMoviePage() {
                 </label>
                 <label>
                   <span>Phim VIP</span>
-                  <input checked={isVip} type="checkbox" onChange={(event) => setIsVip(event.target.checked)} disabled={isViewMode} />
+                  <input className="vip-radio-toggle" checked={isVip} type="checkbox" onChange={(event) => setIsVip(event.target.checked)} disabled={isViewMode} />
                 </label>
               </section>
             </aside>

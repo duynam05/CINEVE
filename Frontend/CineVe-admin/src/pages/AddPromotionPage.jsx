@@ -5,7 +5,6 @@ import {
   CalendarDays,
   Clapperboard,
   Film,
-  Group,
   LayoutDashboard,
   Lightbulb,
   LogOut,
@@ -71,7 +70,7 @@ function AddPromotionPage() {
             <section className="add-promotion-left">
               <article className="add-promotion-panel highlighted">
                 <label>
-                  <span>Promo Code</span>
+                  <span>Mã giảm giá</span>
                   <input
                     value={code}
                     onChange={(event) => setCode(event.target.value.toUpperCase())}
@@ -90,7 +89,7 @@ function AddPromotionPage() {
                 </div>
                 <div className="add-promotion-two-cols" style={{ marginTop: "1rem" }}>
                   <label>
-                    <span>Discount Value ({type === "PERCENT" ? "%" : "VNĐ"})</span>
+                    <span>Giá trị giảm ({type === "PERCENT" ? "%" : "VNĐ"})</span>
                     <div className="add-promotion-input-icon">
                       <input
                         type="number"
@@ -104,10 +103,9 @@ function AddPromotionPage() {
                     </div>
                   </label>
                   <label>
-                    <span>Usage Limit</span>
+                    <span>Số lượng tối đa</span>
                     <div className="add-promotion-input-icon">
                       <input name="usageLimit" type="number" min="1" placeholder="Số lượng tối đa" />
-                      <Group size={18} />
                     </div>
                   </label>
                 </div>
@@ -117,11 +115,11 @@ function AddPromotionPage() {
                 <h2>Điều kiện áp dụng</h2>
                 <div className="add-promotion-two-cols">
                   <label>
-                    <span>Minimum Spend (VNĐ)</span>
+                    <span>Chi tiêu tối thiểu (VNĐ)</span>
                     <input name="minOrderAmount" placeholder="0" />
                   </label>
                   <label>
-                    <span>Max Discount Amount (VNĐ)</span>
+                    <span>Số tiền giảm tối đa (VNĐ)</span>
                     <input name="maxDiscountAmount" placeholder="Tối đa giảm" />
                   </label>
                 </div>
@@ -131,7 +129,7 @@ function AddPromotionPage() {
             <aside className="add-promotion-right">
               <article className="add-promotion-panel">
                 <label>
-                  <span>Expiry Date</span>
+                  <span>Ngày hết hạn</span>
                   <input type="date" value={expiry} onChange={(event) => setExpiry(event.target.value)} />
                   <small>Sau ngày này, mã sẽ tự động hết hiệu lực và không thể sử dụng.</small>
                 </label>
@@ -143,10 +141,10 @@ function AddPromotionPage() {
                   Xem trước hiển thị
                 </h2>
                   <div className="promotion-preview-card">
-                  <span>CineVe Voucher</span>
+                  <span>Phiếu ưu đãi CineVe</span>
                   <strong>{code || "CINECODE"}</strong>
                   <div>
-                    <b>{discount ? (type === "PERCENT" ? `${discount}% OFF` : `${discount}K OFF`) : "20% OFF"}</b>
+                    <b>{discount ? (type === "PERCENT" ? `Giảm ${discount}%` : `Giảm ${discount}K`) : "Giảm 20%"}</b>
                     <small>HSD: {formatDate(expiry) || "31/12/2024"}</small>
                   </div>
                 </div>

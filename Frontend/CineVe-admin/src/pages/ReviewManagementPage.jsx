@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { ChevronLeft, ChevronRight, Eye, EyeOff, Search, Trash2, TrendingDown, TrendingUp } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, EyeOff, Trash2, TrendingDown, TrendingUp } from "lucide-react";
 import { adminReviewApi, adminMovieApi } from "../api/adminApi";
 import { toast } from "react-toastify";
 import { getErrorMessage } from "../api/axiosClient";
@@ -9,7 +9,6 @@ export default function ReviewManagementPage() {
   const [reviews, setReviews] = useState([]);
   const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [query, setQuery] = useState("");
   const [movieFilter, setMovieFilter] = useState("all");
   const [ratingFilter, setRatingFilter] = useState("all");
   const [visibilityFilter, setVisibilityFilter] = useState("all");
@@ -42,14 +41,12 @@ export default function ReviewManagementPage() {
   }, [movieFilter, ratingFilter]);
 
   const visibleReviews = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
     setCurrentPage(1);
     return reviews.filter(review => {
-      const matchQuery = [review.userFullName, review.content].join(" ").toLowerCase().includes(normalized);
       const matchVisibility = visibilityFilter === "all" || (visibilityFilter === "visible" ? review.visible : !review.visible);
-      return matchQuery && matchVisibility;
+      return matchVisibility;
     });
-  }, [reviews, query, visibilityFilter]);
+  }, [reviews, visibilityFilter]);
 
   const stats = useMemo(() => {
     const total = reviews.length;
@@ -119,15 +116,10 @@ export default function ReviewManagementPage() {
           </section>
 
           {/* Toolbar / Filters */}
-          <section className="booking-table-card">
-            <div className="booking-filter-grid">
-              <label className="wide">
-                <div>
-                  <Search size={18} />
-                  <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Nội dung, tên..." />
-                </div>
-              </label>
+          <section className="booking-table-card review-table-card">
+            <div className="booking-filter-grid review-filter-grid">
               <label>
+                <span>Phim</span>
                 <select value={movieFilter} onChange={e => setMovieFilter(e.target.value)}>
                   <option value="all">Tất cả phim</option>
                   {movies.map(m => (
@@ -136,6 +128,7 @@ export default function ReviewManagementPage() {
                 </select>
               </label>
               <label>
+                <span>Xếp hạng</span>
                 <select value={ratingFilter} onChange={e => setRatingFilter(e.target.value)}>
                   <option value="all">Tất cả xếp hạng</option>
                   <option value="5">5 Sao</option>
@@ -146,6 +139,7 @@ export default function ReviewManagementPage() {
                 </select>
               </label>
               <label>
+                <span>Hiển thị</span>
                 <select value={visibilityFilter} onChange={e => setVisibilityFilter(e.target.value)}>
                   <option value="all">Tất cả hiển thị</option>
                   <option value="visible">Đang hiển thị</option>

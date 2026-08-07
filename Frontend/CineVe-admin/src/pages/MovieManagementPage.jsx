@@ -12,7 +12,6 @@ import {
   Pencil,
   Plus,
   Popcorn,
-  Search,
   Settings,
   Ticket,
   Trash2,
@@ -29,8 +28,9 @@ const adminAvatar =
 
 function MovieManagementPage() {
   const navigate = useNavigate();
-  const [query, setQuery] = useState("");
   const [movies, setMovies] = useState([]);
+  const [genreFilter, setGenreFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 12;
@@ -52,13 +52,17 @@ function MovieManagementPage() {
     loadMovies();
   }, []);
 
+  const genreOptions = useMemo(() => {
+    return Array.from(new Set(movies.flatMap((movie) => movie.formats))).filter(Boolean).sort((a, b) => a.localeCompare(b, "vi"));
+  }, [movies]);
+
   const visibleMovies = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
-    if (!normalized) return movies;
-    return movies.filter((movie) =>
-      [movie.title, movie.description, movie.status].join(" ").toLowerCase().includes(normalized)
-    );
-  }, [movies, query]);
+    return movies.filter((movie) => {
+      const matchGenre = genreFilter === "all" || movie.formats.includes(genreFilter);
+      const matchStatus = statusFilter === "all" || movie.rawStatus === statusFilter;
+      return matchGenre && matchStatus;
+    });
+  }, [movies, genreFilter, statusFilter]);
 
   const totalPages = Math.max(1, Math.ceil(visibleMovies.length / pageSize));
   const pagedMovies = useMemo(() => {
@@ -68,7 +72,7 @@ function MovieManagementPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [query]);
+  }, [genreFilter, statusFilter]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -112,10 +116,27 @@ function MovieManagementPage() {
           </header>
 
           <section className="movie-action-bar">
-            <label className="movie-local-search">
-              <Search size={18} />
-              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm kiếm phim..." />
-            </label>
+            <div className="movie-filter-group">
+              <label>
+                <span>Thể loại</span>
+                <select value={genreFilter} onChange={(event) => setGenreFilter(event.target.value)}>
+                  <option value="all">Tất cả thể loại</option>
+                  {genreOptions.map((genre) => (
+                    <option value={genre} key={genre}>{genre}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>Trạng thái</span>
+                <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+                  <option value="all">Tất cả trạng thái</option>
+                  <option value="NOW_SHOWING">Đang công chiếu</option>
+                  <option value="COMING_SOON">Sắp khởi chiếu</option>
+                  <option value="ENDED">Đã kết thúc</option>
+                  <option value="HIDDEN">Đã ẩn</option>
+                </select>
+              </label>
+            </div>
             <Link className="add-movie-button" to="/movies/new">
               <Plus size={18} />
               Thêm phim mới
